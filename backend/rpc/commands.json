@@ -1,0 +1,44 @@
+[
+    {
+        "name": "set_file",
+        "params": [
+            {
+                "name": "filename",
+                "type": "string"
+            },
+            {
+                "name": "definitions",
+                "type": "string[]"
+            },
+            {
+                "name": "includes",
+                "type": "string[]"
+            },
+            {
+                "name": "unsaved_files",
+                "type": [
+                    {
+                        "name": ""
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "name": "complete_at",
+        "params": [
+            {
+                "name": "line",
+                "type": "number"
+            },
+            {
+                "name": "column",
+                "type": "number"
+            },
+            {
+                "name": "line",
+                "type": "number"
+            }
+        ]
+    }
+]

@@ -1,0 +1,620 @@
+{
+    "defines": {
+        "markup_kind_markup": "markdown",
+        "markup_kind_plaintext": "plaintext"
+    },
+    "common": [
+        {
+            "name": "initialization_options",
+            "members": {
+                "flags": "string[]",
+                "compilation_database": "string[]"
+            },
+            "required": []
+        },
+        {
+            "name": "workspace_client_capabilities",
+            "members": {
+                "apply_edit": "boolean",
+                "workspace_edit": {
+                    "dynamic_registration": "boolean"
+                },
+                "did_change_configuration": {
+                    "dynamic_registration": "boolean"
+                },
+                "did_change_watched_files": {
+                    "dynamic_registration": "boolean"
+                },
+                "symbol": {
+                    "dynamic_registration": "boolean"
+                },
+                "execute_command": {
+                    "dynamic_registration": "boolean"
+                }
+            },
+            "required": []
+        },
+        {
+            "name": "text_document_client_capabilities",
+            "members": {
+                "synchronization": {
+                    "dynamic_registration": "boolean",
+                    "will_save": "boolean",
+                    "will_save_wait_until": "boolean",
+                    "did_save": "boolean"
+                },
+                "completion": {
+                    "snippet_support": "boolean",
+                    "commit_characters_support": "boolean"
+                },
+                "hover": {
+                    "dynamic_registration": "boolean"
+                },
+                "signature_help": {
+                    "dynamic_registration": "boolean",
+                    "signature_information": {
+                        "documentation_format": "string[]"
+                    }
+                },
+                "references": {
+                    "dynamic_registration": "boolean"
+                },
+                "document_highlight": {
+                    "dynamic_registration": "boolean"
+                },
+                "document_symbol": {
+                    "dynamic_registration": "boolean"
+                },
+                "formatting": {
+                    "dynamic_registration": "boolean"
+                },
+                "on_type_formatting": {
+                    "dynamic_registration": "boolean"
+                },
+                "definition": {
+                    "dynamic_registration": "boolean"
+                },
+                "code_action": {
+                    "dynamic_registration": "boolean"
+                },
+                "code_lens": {
+                    "dynamic_registration": "boolean"
+                },
+                "document_link": {
+                    "dynamic_registration": "boolean"
+                },
+                "rename": {
+                    "dynamic_registration": "boolean"
+                }
+            },
+            "required": []
+        },
+        {
+            "name": "client_capabilities",
+            "members": {
+                "workspace": "workspace_client_capabilities",
+                "text_document": "text_document_client_capabilities",
+                "experimenal": "any"
+            },
+            "required": []
+        },
+        {
+            "name": "completion_options",
+            "members": {
+                "resolve_provider": "boolean",
+                "trigger_characters": "string[]"
+            },
+            "required": []
+        },
+        {
+            "name": "signature_help_options",
+            "members": {
+                "trigger_characters": "string[]"
+            },
+            "required": []
+        },
+        {
+            "name": "code_lens_options",
+            "members": {
+                "resolve_provider": "boolean"
+            },
+            "required": []
+        },
+        {
+            "name": "save_options",
+            "members": {
+                "include_text": "boolean"
+            },
+            "required": []
+        },
+        {
+            "name": "text_document_sync_options",
+            "members": {
+                "open_close": "boolean",
+                "change": "text_document_sync_kind",
+                "will_save": "boolean",
+                "will_save_wait_until": "boolean",
+                "save": "save_options"
+            },
+            "required": []
+        },
+        {
+            "name": "server_capabilities",
+            "members": {
+                "text_document_sync": "text_document_sync_options",
+                "hover_provider": "boolean",
+                "completion_provider": "completion_options",
+                "signature_help_provider": "signature_help_options",
+                "definition_provider": "boolean",
+                "references_provider": "boolean",
+                "document_highlight_provider": "boolean",
+                "document_symbol_provider": "boolean",
+                "workspace_symbol_provider": "boolean",
+                "code_action_provider": "boolean",
+                "code_lens_provider": "code_lens_options",
+                "document_formatting_provider": "boolean"
+            },
+            "required": []
+        },
+        {
+            "name": "markup_content",
+            "members": {
+                "kind": "string",
+                "value": "string"
+            },
+            "required": ["kind", "value"]
+        },
+        {
+            "name": "marked_string",
+            "members": {
+                "language": "string",
+                "value": "string"
+            },
+            "required": ["language", "value"]
+        },
+        {
+            "name": "message_action_item",
+            "members": {
+                "title": "string"
+            },
+            "required": ["title"]
+        },
+        {
+            "name": "position",
+            "members": {
+                "line": "number",
+                "character": "number"
+            },
+            "required": ["line", "character"]
+        },
+        {
+            "name": "range",
+            "members": {
+                "start": "position",
+                "end": "position"
+            },
+            "required": ["start", "end"]
+        },
+        {
+            "name": "text_edit",
+            "members": {
+                "range": "range",
+                "new_text": "string"
+            },
+            "required": ["range", "new_text"]
+        },
+        {
+            "name": "diagnostic",
+            "members": {
+                "range": "range",
+                "severity": "diagnostic_severity",
+                "code": "number",
+                "source": "string",
+                "message": "string"
+            },
+            "required": ["range", "message"]
+        },
+        {
+            "name": "location",
+            "members": {
+                "uri": "uri",
+                "range": "range"
+            },
+            "required": ["uri", "range"]
+        },
+        {
+            "name": "text_document_item",
+            "members": {
+                "uri": "uri",
+                "language_id": "string",
+                "version": "number",
+                "text": "string"
+            },
+            "required": ["uri", "language_id", "version", "text"]
+        },
+        {
+            "name": "text_document_content_change_event",
+            "members": {
+                "range": "range",
+                "range_length": "number",
+                "text": "string"
+            },
+            "required": ["text"]
+        },
+        {
+            "name": "text_document_identifier",
+            "members": {
+                "uri": "uri"
+            },
+            "required": ["uri"]
+        },
+        {
+            "name": "versioned_text_document_identifier",
+            "members": {
+                "uri": "uri",
+                "version": "number"
+            },
+            "required": ["uri", "version"]
+        },
+        {
+            "name": "file_event",
+            "members": {
+                "uri": "uri",
+                "type": "file_change_type"
+            },
+            "required": ["uri", "type"]
+        },
+        {
+            "name": "text_document_position_params",
+            "members": {
+                "text_document": "text_document_identifier",
+                "position": "position"
+            },
+            "required": ["text_document", "position"]
+        },
+        {
+            "name": "command",
+            "members": {
+                "title": "string",
+                "command": "string",
+                "arguments": "any"
+            },
+            "required": ["title", "command"]
+        },
+        {
+            "name": "completion_item",
+            "members": {
+                "label": "string",
+                "kind": "completion_item_kind",
+                "detail": "string",
+                "documentation": "markup_content",
+                "sort_text": "string",
+                "filter_text": "string",
+                "insert_text": "string",
+                "insert_text_format": "insert_text_format",
+                "text_edit": "text_edit",
+                "additional_text_edits": "text_edit[]",
+                "commit_characters": "string[]",
+                "command": "command",
+                "data": "any"
+            },
+            "required": ["label"]
+        },
+        {
+            "name": "parameter_information",
+            "members": {
+                "label": "string",
+                "documentation": "markup_content"
+            },
+            "required": ["label"]
+        },
+        {
+            "name": "signature_information",
+            "members": {
+                "label": "string",
+                "documentation": "markup_content",
+                "parameters": "parameter_information[]"
+            },
+            "required": ["label"]
+        },
+        {
+            "name": "reference_context",
+            "members": {
+                "include_declaration": "boolean"
+            },
+            "required": ["include_declaration"]
+        },
+        {
+            "name": "completion_list",
+            "members": {
+                "is_incomplete": "boolean",
+                "items": "completion_item[]"
+            },
+            "required": ["is_incomplete", "items"]
+        },
+        {
+            "name": "code_action_context",
+            "members": {
+                "diagnostics": "diagnostic[]"
+            },
+            "required": ["diagnostics"]
+        }
+    ],
+    "server_command_params": [
+        {
+            "name": "initialize_params",
+            "members": {
+                "process_id": "number",
+                "root_path": "string",
+                "root_uri": "uri",
+                "capabilities": "client_capabilities",
+                "initialization_options": "initialization_options",
+                "trace": "string"
+            },
+            "required": ["process_id", "root_uri", "capabilities"]
+        },
+        {
+            "name": "reference_params",
+            "members": {
+                "context": "reference_context",
+                "text_document": "text_document_identifier",
+                "position": "position"
+            },
+            "required": ["context", "text_document", "position"]
+        },
+        {
+            "name": "document_symbol_params",
+            "members": {
+                "text_document": "text_document_identifier"
+            },
+            "required": ["text_document"]
+        },
+        {
+            "name": "workspace_symbol_params",
+            "members": {
+                "query": "string"
+            },
+            "required": ["query"]
+        },
+        {
+            "name": "document_link_params",
+            "members": {
+                "text_document": "text_document_identifier"
+            },
+            "required": ["text_document"]
+        },
+        {
+            "name": "code_action_params",
+            "members": {
+                "text_document": "text_document_identifier",
+                "range": "range",
+                "context": "code_action_context"
+            },
+            "required": ["text_document", "range", "context"]
+        }
+    ],
+    "client_command_params": [
+        {
+            "name": "show_message_request_params",
+            "members": {
+                "type": "message_type",
+                "message": "string",
+                "actions": "message_action_item[]"
+            },
+            "required": ["type", "message"]
+        },
+        {
+            "name": "signature_help",
+            "members": {
+                "signatures": "signature_information[]",
+                "active_signature": "number",
+                "active_parameter": "number"
+            },
+            "required": ["signatures"]
+        }
+    ],
+    "response_params": [
+        {
+            "name": "initialize_result",
+            "members": {
+                "capabilities": "server_capabilities"
+            },
+            "required": ["capabilities"]
+        },
+        {
+            "name": "symbol_information",
+            "members": {
+                "name": "string",
+                "kind": "symbol_kind",
+                "location": "location",
+                "container_name": "string"
+            },
+            "required": ["name", "kind", "location"]
+        },
+        {
+            "name": "document_link",
+            "members": {
+                "range": "range",
+                "target": "uri"
+            },
+            "required": ["range"]
+        },
+        {
+            "name": "hover",
+            "members": {
+                "contents": "markup_content",
+                "range": "range"
+            },
+            "required": ["contents"]
+        }
+    ],
+    "client_notification_params": [
+        {
+            "name": "show_message_params",
+            "members": {
+                "type": "message_type",
+                "message": "string"
+            },
+            "required": ["type", "message"]
+        },
+        {
+            "name": "log_message_params",
+            "members": {
+                "type": "message_type",
+                "message": "string"
+            },
+            "required": ["type", "message"]
+        },
+        {
+            "name": "publish_diagnostics_params",
+            "members": {
+                "uri": "uri",
+                "diagnostics": "diagnostic[]"
+            },
+            "required": ["uri", "diagnostics"]
+        }
+    ],
+    "server_notification_params": [
+        {
+            "name": "did_open_text_document_params",
+            "members": {
+                "text_document": "text_document_item"
+            },
+            "required": ["text_document"]
+        },
+        {
+            "name": "did_change_text_document_params",
+            "members": {
+                "text_document": "versioned_text_document_identifier",
+                "content_changes": "text_document_content_change_event[]"
+            },
+            "required": ["text_document", "content_changes"]
+        },
+        {
+            "name": "did_save_text_document_params",
+            "members": {
+                "text_document": "text_document_identifier",
+                "text": "string"
+            },
+            "required": ["text_document"]
+        },
+        {
+            "name": "did_close_text_document_params",
+            "members": {
+                "text_document": "text_document_identifier"
+            },
+            "required": ["text_document"]
+        },
+        {
+            "name": "did_change_watched_files_params",
+            "members": {
+                "changes": "file_event[]"
+            },
+            "required": ["changes"]
+        }
+    ],
+    "messages": {
+        "server_requests": [
+            {
+                "name": "initialize",
+                "parameters": "initialize_params",
+                "response": "initialize_result"
+            },
+            {
+                "name": "workspace/symbol",
+                "parameters": "workspace_symbol_params",
+                "response": "symbol_information[]"
+            },
+            {
+                "name": "text_document/completion",
+                "parameters": "text_document_position_params",
+                "response": "completion_item[]"
+            },
+            {
+                "name": "text_document/signature_help",
+                "parameters": "text_document_position_params",
+                "response": "signature_help"
+            },
+            {
+                "name": "text_document/definition",
+                "parameters": "text_document_position_params",
+                "response": "location[]"
+            },
+            {
+                "name": "text_document/references",
+                "parameters": "reference_params",
+                "response": "location[]"
+            },
+            {
+                "name": "text_document/document_link",
+                "parameters": "document_link_params",
+                "response": "document_link[]"
+            },
+            {
+                "name": "text_document/hover",
+                "parameters": "text_document_position_params",
+                "response": "hover"
+            },
+            {
+                "name": "text_document/code_action",
+                "parameters": "code_action_params",
+                "response": "command[]"
+            }
+        ],
+        "server_notifications": [
+            {
+                "name": "text_document/did_open",
+                "parameters": "did_open_text_document_params"
+            },
+            {
+                "name": "text_document/did_change",
+                "parameters": "did_change_text_document_params"
+            },
+            {
+                "name": "text_document/did_save",
+                "parameters": "did_save_text_document_params"
+            },
+            {
+                "name": "text_document/did_close",
+                "parameters": "did_close_text_document_params"
+            }
+        ],
+        "client_requests": [
+            {
+                "name": "window/show_message_request",
+                "parameters": "show_message_request_params",
+                "response": "message_action_item"
+            }
+        ],
+        "client_notifications": [
+            {
+                "name": "text_document/publish_diagnostics",
+                "parameters": "publish_diagnostics_params"
+            },
+            {
+                "name": "window/show_message",
+                "parameters": "show_message_params"
+            },
+            {
+                "name": "window/log_message",
+                "params": "log_message_params"
+            },
+            {
+                "name": "telemetry/event",
+                "parameters": "any"
+            }
+        ]
+    },
+    "enums": [
+        "message_type",
+        "file_change_type",
+        "watch_kind",
+        "text_document_sync_kind",
+        "diagnostic_severity",
+        "completion_item_kind",
+        "insert_text_format",
+        "document_highlight_kind",
+        "symbol_kind",
+        "text_document_save_reason"
+    ]
+}

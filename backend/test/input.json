@@ -1,0 +1,25 @@
+{
+    "method": "set_file",
+    "params": {
+        "filename": "../test/target_files/test.c",
+        "includes": [],
+        "defines": []
+    },
+    "id": null
+}
+{
+    "method": "complete_at",
+    "params": {
+        "line": 51,
+        "column": 7
+    },
+    "id": null
+}
+{
+    "method": "function_definition_get",
+    "params": {
+        "line": 50,
+        "column": 7
+    },
+    "id": 1234
+}

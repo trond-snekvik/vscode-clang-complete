@@ -1,0 +1,12 @@
+Content-Length: 1317
+
+{"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {"processId": 1368, "rootPath": "c:\\Users\\Trond\\dev\\nRF\\mesh-btle", "rootUri": "file:///c%3A/Users/Trond/dev/nRF/mesh-btle", "capabilities": {"workspace": {"applyEdit": true, "didChangeConfiguration": {"dynamicRegistration": true}, "didChangeWatchedFiles": {"dynamicRegistration": true}, "symbol": {"dynamicRegistration": true}, "executeCommand": {"dynamicRegistration": true}}, "textDocument": {"synchronization": {"dynamicRegistration": true, "willSave": true, "willSaveWaitUntil": true, "didSave": true}, "completion": {"dynamicRegistration": true, "completionItem": {"snippetSupport": true, "commitCharactersSupport": true}}, "hover": {"dynamicRegistration": true}, "signatureHelp": {"dynamicRegistration": true}, "definition": {"dynamicRegistration": true}, "references": {"dynamicRegistration": true}, "documentHighlight": {"dynamicRegistration": true}, "documentSymbol": {"dynamicRegistration": true}, "codeAction": {"dynamicRegistration": true}, "codeLens": {"dynamicRegistration": true}, "formatting": {"dynamicRegistration": true}, "rangeFormatting": {"dynamicRegistration": true}, "onTypeFormatting": {"dynamicRegistration": true}, "rename": {"dynamicRegistration": true}, "documentLink": {"dynamicRegistration": true}}}, "trace": "off"}}
+Content-Length: 374
+
+{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///c%3A/Users/Trond/dev/nRF/mesh-btle/test.c","languageId":"c","version":1,"text":"#include <stdio.h>\r\n\r\nunsigned int function()\r\n{\r\n    return -432;\r\n}\r\n\r\n\r\nint funcis(int arg);\r\n\r\nint main(int argc, char * argv[])\r\n{\r\n    printf(\"%u\\n\", function());\r\n}"}}}Content-Length: 489
+
+
+{"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":"file:///c%3A/Users/Trond/dev/nRF/mesh-btle/test.c","version":107},"contentChanges":[{"text":"#include <stdio.h>\r\n\r\nunsigned int function()\r\n{\r\n    return -432;\r\n}\r\n/** Hello */\r\nstatic struct {\r\n    int a;/**< Hello */\r\n    int b; /**< Yo */\r\n} ssss;\r\n\r\nint funcis(int arg);\r\n\r\nint main(int argc, char * argv[])\r\n{\r\n    ssss.\r\n    printf(\"%u\\n\", function());\r\n}"}]}}Content-Length: 183
+
+
+{"jsonrpc":"2.0","id":26,"method":"textDocument/completion","params":{"textDocument":{"uri":"file:///c%3A/Users/Trond/dev/nRF/mesh-btle/test.c"},"position":{"line":16,"character":9}}}
