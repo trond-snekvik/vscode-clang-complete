@@ -1,0 +1,68 @@
+{
+    "name": "clang-server",
+    "displayName": "clang-server",
+    "description": "Clang support for C/C++ code completion and symbol lookup",
+    "version": "0.0.1",
+    "publisher": "trond-snekvik",
+    "engines": {
+        "vscode": "^1.19.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "*"
+    ],
+    "main": "./out/src/extension",
+    "contributes": {
+        "commands": [
+            {
+                "command": "extension.sayHello",
+                "title": "Hello World"
+            },
+            {
+                "command": "clang-server.switch_header",
+                "title": "Switch between header/source file"
+            }
+        ],
+        "configuration":[
+            {
+                "title": "Clang server configuration",
+                "properties": {
+                    "clang-server.flags": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of compiler arguments, used when no compile_commands.json-file is available for the given file."
+                    },
+                    "clang-server.compile_commands": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of directories to find compile_commands.json-files to use for getting compilation flags for translation units."
+                    }
+                }
+            }
+        ]
+    },
+    "scripts": {
+        "vscode:prepublish": "tsc -p ./",
+        "compile": "tsc -w -p ./",
+        "postinstall": "node ./node_modules/vscode/bin/install",
+        "test": "node ./node_modules/vscode/bin/test"
+    },
+    "devDependencies": {
+        "typescript": "^2.0.3",
+		"vscode": "^1.1.10",
+        "mocha": "^2.3.3",
+        "@types/node": "^6.0.40",
+        "@types/mocha": "^2.2.32"
+    },
+    "dependencies": {
+        "vscode-jsonrpc": "^3.5.0",
+        "vscode-languageclient": "^3.5.0",
+        "vscode-languageserver-protocol": "3.5.0"
+    }
+}
