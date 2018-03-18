@@ -5,27 +5,6 @@ import * as jsonrpc from 'vscode-jsonrpc';
 import * as fs from 'fs';
 import * as path from 'path';
 
-var default_flags = [
-    "-std=gnu99",
-    "-D__GNUC__",
-    "-DNRF51",
-    "-DSOFTDEVICE_PRESENT",
-    "-DS130",
-    "-DBOARD_PCA10031",
-    "-DBLE_STACK_SUPPORT_REQD",
-    "-DSVCALL_AS_NORMAL_FUNCTION",
-    "-Imesh/core/api",
-    "-Imesh/core/include",
-    "-Imesh/prov/include",
-    "-Imesh/prov/api",
-    "-Imesh/dfu/include",
-    "-Imesh/dfu/api",
-    "-Imesh/serial/include",
-    "-Imesh/serial/api",
-    "-Iexternal/softdevice/s130_2.0.1/s130_nrf51_2.0.1_API/include",
-    "-Iexternal/nRF5_SDK_14.0.0_3bcc1f7/components/device",
-];
-
 interface InitializationOptions {
     flags: string[];
     compilationDatabase: string[];
@@ -59,12 +38,12 @@ function server_launch() {
         }
     }
 
-    var serverOptions: client.ServerOptions = {command: __dirname + '/../../backend/build/Debug/backend.exe', transport: client.TransportKind.ipc };
+    var serverOptions: client.ServerOptions = {command: __dirname + '/../../backend/bin/backend.exe', options: {env: {"LIBCLANG_NOTHREADS": 1}}};
     var clientOptions: client.LanguageClientOptions = {
         documentSelector: [{language: 'c'}, {language: 'cpp'}],
         diagnosticCollectionName: 'clang_diags',
         initializationOptions: initOptions};
-    langClient = new client.LanguageClient('clang', serverOptions, clientOptions, true);
+    langClient = new client.LanguageClient('clang', serverOptions, clientOptions);
     langClient.start();
 }
 
