@@ -22,7 +22,14 @@
             },
             {
                 "command": "clang-server.switch_header",
-                "title": "Switch between header/source file"
+                "title": "Switch between header/source file",
+                "category": "Navigation"
+            }
+        ],
+        "keybindings":[
+            {
+                "command": "clang-server.switch_header",
+                "key": "Alt+o"
             }
         ],
         "configuration":[
