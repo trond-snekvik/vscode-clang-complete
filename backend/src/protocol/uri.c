@@ -227,3 +227,11 @@ const bool uri_is_c_cpp_file(const uri_t * p_uri)
 
     return false;
 }
+
+char * uri_file_encode(const char * p_filename)
+{
+    uri_t uri = uri_file(p_filename);
+    char * p_retval = uri_encode(&uri);
+    uri_free_members(&uri);
+    return p_retval;
+}
