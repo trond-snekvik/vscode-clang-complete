@@ -6,7 +6,9 @@ set(RUNTIME_OUTPUT_DIRECTORY ../lib)
 
 if (WIN32)
     set(platform "win32")
-    find_library(LIBCLANG libclang lib/clang/${platform}/bin)
+    find_library(LIBCLANG libclang
+                 PATHS lib/clang/${platform}/bin
+                 NO_DEFAULT_PATH)
     set(node "node")
 endif()
 
@@ -45,6 +47,7 @@ add_executable(${EXECUTABLE}
     )
 
 add_definitions(
+    "-D_DEBUG"
     "-D_CRT_SECURE_NO_WARNINGS")
 
 target_link_libraries(${EXECUTABLE} PRIVATE
