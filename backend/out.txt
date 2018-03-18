@@ -1,3 +1,0 @@
-Content-Length: 366
-
-{"jsonrpc": "2.0", "id": 0, "result": {"capabilities": {"textDocumentSync": {"openClose": true, "change": 1, "willSave": false, "willSaveWaitUntil": false, "save": {"includeText": false}}, "completionProvider": {"resolveProvider": false, "triggerCharacters": [".", ">", ":"]}, "signatureHelpProvider": {"triggerCharacters": ["(", ","]}, "definitionProvider": true}}}
