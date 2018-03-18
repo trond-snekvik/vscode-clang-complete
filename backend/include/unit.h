@@ -8,6 +8,8 @@
 #include "hashtable.h"
 #include "log.h"
 
+#define DIAG_MAX_PER_FILE 100
+#define DIAG_MAX_FILES 20
 
 typedef struct
 {
@@ -29,8 +31,7 @@ typedef struct
 
     CXTranslationUnit tu;
     bool active;
-    char ** p_diag_files;
-    unsigned diag_file_count;
+    HashTable * diag_files;
 
     fixit_t * p_fixits;
     unsigned fixit_count;
@@ -113,11 +114,18 @@ bool unit_includes_file(unit_t * p_unit, const char * p_file);
 static inline void compile_flags_clone(compile_flags_t * p_dst, const compile_flags_t * p_src)
 {
     p_dst->count = p_src->count;
-    p_dst->pp_array = malloc(sizeof(char *) * p_dst->count);
-    for (unsigned i = 0; i < p_dst->count; ++i)
-    {
-        p_dst->pp_array[i] = STRDUP(p_src->pp_array[i]);
-    }
+	if (p_src->count > 0)
+	{
+		p_dst->pp_array = malloc(sizeof(char *) * p_dst->count);
+		for (unsigned i = 0; i < p_dst->count; ++i)
+		{
+			p_dst->pp_array[i] = STRDUP(p_src->pp_array[i]);
+		}
+	}
+	else
+	{
+		p_dst->pp_array = NULL;
+	}
 }
 
 static inline void compile_flags_free(compile_flags_t * p_flags)

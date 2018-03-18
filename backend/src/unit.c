@@ -11,6 +11,7 @@
                                         CXTranslationUnit_CacheCompletionResults |               \
                                         CXTranslationUnit_IncludeBriefCommentsInCodeCompletion | \
                                         CXTranslationUnit_CreatePreambleOnFirstParse |           \
+                                        CXTranslationUnit_DetailedPreprocessingRecord |          \
                                         CXTranslationUnit_KeepGoing)
 
 #define TRANSLATION_UNIT_REPARSE_OPTIONS (CXReparse_None)
@@ -18,9 +19,7 @@
 #define COMPLETION_FLAGS (CXCodeComplete_IncludeMacros | CXCodeComplete_IncludeBriefComments)
 #define COMPLETION_STRING_MAXLEN    2048
 
-#define DIAG_MAX_PER_FILE 100
-#define DIAG_MAX_FILES 20
-
+#define NO_FILENAME_DIAG "clang-server:///command-line"
 
 typedef struct
 {
@@ -30,6 +29,13 @@ typedef struct
     text_document_position_params_t location;
     completion_item_kind_t kind;
 } definition_t;
+
+typedef struct
+{
+    char * p_uri;
+    diagnostic_t diagnostics[DIAG_MAX_PER_FILE];
+    unsigned diag_count;
+} diag_file_t;
 
 typedef struct
 {
@@ -351,18 +357,6 @@ static definition_t * definition_get(CXCursor definition_cursor)
     return p_definition;
 }
 
-
-static void publish_no_diags(unit_t * p_unit, const char * p_filename, unit_diagnostics_callback_t diag_callback, void * p_args)
-{
-    publish_diagnostics_params_t publish;
-    publish.uri = uri_file(p_filename);
-    publish.p_diagnostics = NULL;
-    publish.diagnostics_count = 0;
-    publish.valid_fields = PUBLISH_DIAGNOSTICS_PARAMS_FIELD_ALL;
-    diag_callback(p_unit, &publish, p_args);
-    uri_free_members(&publish.uri);
-}
-
 static void include_visitor(CXFile included_file,
                             CXSourceLocation * p_inclusion_stack,
                             unsigned include_len,
@@ -379,7 +373,8 @@ static void include_visitor(CXFile included_file,
 
 void unit_init(const unit_config_t * p_config)
 {
-    m_index = clang_createIndex(0, 0);
+    m_index = clang_createIndex(true, false);
+    clang_CXIndex_setGlobalOptions(m_index, CXGlobalOpt_ThreadBackgroundPriorityForEditing);
     m_config = *p_config;
 }
 
@@ -395,12 +390,11 @@ unit_t * unit_create(const char * p_filename,
 
     compile_flags_clone(&p_unit->flags, p_flags);
 
-    p_unit->diag_file_count = 0;
-    p_unit->p_diag_files = NULL;
     p_unit->p_filename = normalize_path(p_filename);
     p_unit->active = false;
     p_unit->p_fixits = NULL;
     p_unit->fixit_count = 0;
+    ASSERT(hashtable_new(&p_unit->diag_files) == CC_OK);
     LOG("Added unit %s\n", p_unit->p_filename);
     return p_unit;
 }
@@ -918,177 +912,132 @@ unsigned unit_diagnostics_get(unit_t *p_unit,
     CXDiagnosticSet set = clang_getDiagnosticSetFromTU(p_unit->tu);
     unsigned count = clang_getNumDiagnosticsInSet(set);
 
-    if (count > 0)
+    /* The diags come out of Clang in a bunch, while LSP requires us to report one list per file.
+     * Gather one set per file, and assign each Clang diagnostic to their matching file set. */
+    unsigned total_fixit_count = 0;
+    unsigned fixit_index = 0;
+
+    for (unsigned i = 0; i < count; ++i)
     {
-        /* The diags come out of Clang in a bunch, while LSP requires us to report one list per file.
-         * Gather one set per file, and assign each Clang diagnostic to their matching file set. */
-        struct
+        CXDiagnostic clang_diag = clang_getDiagnosticInSet(set, i);
+        total_fixit_count += clang_getDiagnosticNumFixIts(clang_diag);
+        clang_disposeDiagnostic(clang_diag);
+    }
+    if (total_fixit_count > 0)
+    {
+        if (p_unit->p_fixits)
         {
-            CXFile file;
-            diagnostic_t * p_diagnostics;
-            unsigned diag_count;
-        } diag_file[DIAG_MAX_FILES];
-
-        unsigned file_count = 0;
-        unsigned total_fixit_count = 0;
-        unsigned fixit_index = 0;
-
-        for (unsigned i = 0; i < count; ++i)
-        {
-            CXDiagnostic clang_diag = clang_getDiagnosticInSet(set, i);
-            total_fixit_count += clang_getDiagnosticNumFixIts(clang_diag);
-            clang_disposeDiagnostic(clang_diag);
+            for (unsigned i = 0; i < p_unit->fixit_count; ++i)
+            {
+                free(p_unit->p_fixits[i].p_filename);
+                free(p_unit->p_fixits[i].p_string);
+            }
         }
 
-        if (total_fixit_count > 0)
+        p_unit->fixit_count = total_fixit_count;
+        p_unit->p_fixits = REALLOC(p_unit->p_fixits, sizeof(fixit_t) * total_fixit_count);
+    }
+    LOG("-- GET DIAGS (%u)\n", count);
+
+    for (unsigned i = 0; i < count; ++i)
+    {
+        CXDiagnostic clang_diag = clang_getDiagnosticInSet(set, i);
+        CXFile file;
+        diagnostic_t diag;
+        if (diagnostic_parse(clang_diag, &diag, &file))
         {
-            if (p_unit->p_fixits)
+            diag_file_t * p_diag_file = NULL;
+            char * p_uri = NULL;
+            if (file)
             {
-                for (unsigned i = 0; i < p_unit->fixit_count; ++i)
-                {
-                    free(p_unit->p_fixits[i].p_filename);
-                    free(p_unit->p_fixits[i].p_string);
-                }
-            }
-
-            p_unit->fixit_count = total_fixit_count;
-            p_unit->p_fixits = REALLOC(p_unit->p_fixits, sizeof(fixit_t) * total_fixit_count);
-        }
-
-        for (unsigned i = 0; i < count; ++i)
-        {
-            CXDiagnostic clang_diag = clang_getDiagnosticInSet(set, i);
-            CXFile file;
-            diagnostic_t diag;
-            if (diagnostic_parse(clang_diag, &diag, &file))
-            {
-                bool found_existing_set = false;
-                /* Find the diag file this diag belongs to. Start searching at the back, as
-                 * diagnostics are likely to be returned from one file at the time. */
-                for (int j = file_count - 1; j >= 0; --j)
-                {
-                    if (clang_File_isEqual(file, diag_file[j].file))
-                    {
-                        if (diag_file[j].diag_count < DIAG_MAX_PER_FILE)
-                        {
-                            diag_file[j].p_diagnostics[diag_file[j].diag_count++] = diag;
-                        }
-                        found_existing_set = true;
-                        break;
-                    }
-                }
-                if (!found_existing_set && file_count < DIAG_MAX_FILES)
-                {
-                    diag_file[file_count].p_diagnostics = MALLOC(sizeof(diagnostic_t) * DIAG_MAX_PER_FILE);
-                    ASSERT(diag_file[file_count].p_diagnostics);
-
-                    diag_file[file_count].p_diagnostics[0] = diag;
-                    diag_file[file_count].diag_count = 1;
-                    diag_file[file_count].file = file;
-                    file_count++;
-                }
-            }
-
-            unsigned num_fixits = clang_getDiagnosticNumFixIts(clang_diag);
-
-            for (unsigned j = 0; j < num_fixits; ++j)
-            {
-                CXSourceRange replacement_range;
-                CXString string = clang_getDiagnosticFixIt(clang_diag, j, &replacement_range);
-
-                CXSourceLocation start = clang_getRangeStart(replacement_range);
-                CXSourceLocation end = clang_getRangeEnd(replacement_range);
-                unsigned start_line, start_character;
-                unsigned end_line, end_character;
-                CXFile file;
-                clang_getSpellingLocation(start, &file, &start_line, &start_character, NULL);
-                clang_getSpellingLocation(end, NULL, &end_line, &end_character, NULL);
-
                 CXString filename = clang_getFileName(file);
-                fixit_t * p_fixit = &p_unit->p_fixits[fixit_index++];
-                p_fixit->p_filename = STRDUP(clang_getCString(filename));
-                p_fixit->p_string = STRDUP(clang_getCString(string));
-                p_fixit->range.start.line = start_line - 1;
-                p_fixit->range.start.character = start_character - 1;
-                p_fixit->range.start.valid_fields = POSITION_FIELD_ALL;
-                p_fixit->range.end.line = end_line - 1;
-                p_fixit->range.end.character = end_character - 1;
-                p_fixit->range.end.valid_fields = POSITION_FIELD_ALL;
-                p_fixit->range.valid_fields = RANGE_FIELD_ALL;
-
+                p_uri = uri_file_encode(clang_getCString(filename));
                 clang_disposeString(filename);
-                clang_disposeString(string);
             }
-            clang_disposeDiagnostic(clang_diag);
-        }
-        char ** p_filenames = MALLOC(sizeof(char *) * file_count);
-        /* Report once per file */
-        for (unsigned i = 0; i < file_count; ++i)
-        {
-            publish_diagnostics_params_t publish;
-            if (diag_file[i].file)
+
+            if (hashtable_get(p_unit->diag_files, p_uri, &p_diag_file) == CC_OK)
             {
-                CXString filename = clang_getFileName(diag_file[i].file);
-                publish.uri = uri_file(clang_getCString(filename));
-                p_filenames[i] = STRDUP(publish.uri.path);
-                clang_disposeString(filename);
+                FREE(p_uri);
             }
             else
             {
-                publish.uri = uri_decode("clang-server:///command-line");
-                p_filenames[i] = STRDUP(publish.uri.path);
+                p_diag_file = MALLOC(sizeof(diag_file_t));
+                p_diag_file->diag_count = 0;
+                p_diag_file->p_uri = p_uri;
+
+                ASSERT(hashtable_add(p_unit->diag_files, p_diag_file->p_uri, p_diag_file) == CC_OK);
             }
-            publish.p_diagnostics = diag_file[i].p_diagnostics;
-            publish.diagnostics_count = diag_file[i].diag_count;
+
+            if (p_diag_file->diag_count < DIAG_MAX_PER_FILE)
+            {
+                p_diag_file->diagnostics[p_diag_file->diag_count++] = diag;
+            }
+        }
+
+        unsigned num_fixits = clang_getDiagnosticNumFixIts(clang_diag);
+        LOG("Diag fixits: %u\n", num_fixits);
+
+        for (unsigned j = 0; j < num_fixits; ++j)
+        {
+            CXSourceRange replacement_range;
+            CXString string = clang_getDiagnosticFixIt(clang_diag, j, &replacement_range);
+
+            CXSourceLocation start = clang_getRangeStart(replacement_range);
+            CXSourceLocation end = clang_getRangeEnd(replacement_range);
+            unsigned start_line, start_character;
+            unsigned end_line, end_character;
+            CXFile file;
+            clang_getSpellingLocation(start, &file, &start_line, &start_character, NULL);
+            clang_getSpellingLocation(end, NULL, &end_line, &end_character, NULL);
+
+            CXString filename = clang_getFileName(file);
+            fixit_t * p_fixit = &p_unit->p_fixits[fixit_index++];
+            p_fixit->p_filename = STRDUP(clang_getCString(filename));
+            p_fixit->p_string = STRDUP(clang_getCString(string));
+            p_fixit->range.start.line = start_line - 1;
+            p_fixit->range.start.character = start_character - 1;
+            p_fixit->range.start.valid_fields = POSITION_FIELD_ALL;
+            p_fixit->range.end.line = end_line - 1;
+            p_fixit->range.end.character = end_character - 1;
+            p_fixit->range.end.valid_fields = POSITION_FIELD_ALL;
+            p_fixit->range.valid_fields = RANGE_FIELD_ALL;
+
+            clang_disposeString(filename);
+            clang_disposeString(string);
+        }
+        clang_disposeDiagnostic(clang_diag);
+    }
+
+    if (hashtable_size(p_unit->diag_files) > 0)
+    {
+        LOG("-- REPORTING (0x%p)\n", p_unit->diag_files);
+        HashTableIter iter;
+        hashtable_iter_init(&iter, p_unit->diag_files);
+        TableEntry * p_entry;
+        while (hashtable_iter_next(&iter, &p_entry) == CC_OK)
+        {
+            LOG("-- WHAT\n");
+            ASSERT(p_entry);
+            diag_file_t * p_file = (diag_file_t *) p_entry->value;
+            ASSERT(p_file);
+            LOG("-- ITERATOR: %s diag: %u\n", p_file->p_uri ? p_file->p_uri : NO_FILENAME_DIAG, p_file->diag_count);
+
+            publish_diagnostics_params_t publish;
+            publish.uri = uri_decode(p_file->p_uri ? p_file->p_uri : NO_FILENAME_DIAG);
+            publish.p_diagnostics = p_file->diagnostics;
+            publish.diagnostics_count = p_file->diag_count;
             publish.valid_fields = PUBLISH_DIAGNOSTICS_PARAMS_FIELD_ALL;
+
             diag_callback(p_unit, &publish, p_args);
 
-            for (unsigned j = 0; j < diag_file[i].diag_count; ++j)
-            {
-                FREE(diag_file[i].p_diagnostics[j].message);
-            }
-            FREE(diag_file[i].p_diagnostics);
             uri_free_members(&publish.uri);
-        }
 
-        if (p_unit->p_diag_files)
-        {
-            for (unsigned i = 0; i < p_unit->diag_file_count; ++i)
+            for (unsigned j = 0; j < p_file->diag_count; ++j)
             {
-                bool still_has_file = false;
-                for (unsigned j = 0; j < file_count; ++j)
-                {
-                    if (strcmp(p_unit->p_diag_files[i], p_filenames[j]) == 0)
-                    {
-                        still_has_file = true;
-                        break;
-                    }
-                }
-                if (!still_has_file)
-                {
-                    publish_no_diags(p_unit, p_unit->p_diag_files[i], diag_callback, p_args);
-                }
-                FREE(p_unit->p_diag_files[i]);
+                FREE(p_file->diagnostics[j].message);
             }
-            FREE(p_unit->p_diag_files);
+            p_file->diag_count = 0;
         }
-
-        p_unit->p_diag_files = p_filenames;
-        p_unit->diag_file_count = file_count;
-    }
-    else
-    {
-        if (p_unit->p_diag_files)
-        {
-            for (unsigned i = 0; i < p_unit->diag_file_count; ++i)
-            {
-                publish_no_diags(p_unit, p_unit->p_diag_files[i], diag_callback, p_args);
-                FREE(p_unit->p_diag_files[i]);
-            }
-            FREE(p_unit->p_diag_files);
-        }
-        p_unit->p_diag_files = NULL;
-        p_unit->diag_file_count = 0;
     }
 
     clang_disposeDiagnosticSet(set);
