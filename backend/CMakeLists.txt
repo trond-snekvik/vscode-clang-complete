@@ -1,15 +1,13 @@
 cmake_minimum_required (VERSION 3.0)
-project (Clang-Backend C CXX)
+project (Clang-Backend C)
 set (EXECUTABLE "backend")
+
+set(RUNTIME_OUTPUT_DIRECTORY ../lib)
 
 if (WIN32)
     set(platform "win32")
     find_library(LIBCLANG libclang lib/clang/${platform}/bin)
     set(node "node")
-elseif(UNIX)
-    set(platform "unix")
-    set(node "nodejs")
-    link_directories("${CMAKE_CURRENT_SOURCE_DIR}/lib/clang/${platform}/bin")
 endif()
 
 set (CMAKE_C_STANDARD 99)
@@ -22,7 +20,6 @@ include_directories(
     "include"
     "include/protocol"
     "${CMAKE_CURRENT_SOURCE_DIR}/lib/Collections-C/src/include"
-    ${CURSES_INCLUDE_DIR}
     )
 
 add_executable(${EXECUTABLE}
@@ -47,76 +44,22 @@ add_executable(${EXECUTABLE}
     "${CMAKE_CURRENT_SOURCE_DIR}/lib/Collections-C/src/stack.c"
     )
 
-set_property(TARGET ${EXECUTABLE} PROPERTY CXX_STANDARD 11)
+add_definitions(
+    "-D_CRT_SECURE_NO_WARNINGS")
 
-if (WIN32)
-    add_definitions(
-        "-D_CRT_SECURE_NO_WARNINGS"
-        "-D_DEBUG")
-    target_link_libraries(${EXECUTABLE} PRIVATE
-        ${LIBCLANG}
-        ${LIBJANSSON})
+target_link_libraries(${EXECUTABLE} PRIVATE
+    ${LIBCLANG}
+    ${LIBJANSSON})
 
-elseif (UNIX)
-
-    target_link_libraries(${EXECUTABLE}
-        clang
-        clangFrontend
-        clangSerialization
-        clangDriver
-        clangParse
-        clangSema
-        clangAnalysis
-        clangAST
-        clangBasic
-        clangEdit
-        clangLex
-        clangTooling
+set(runtime_files
+    "${CMAKE_SOURCE_DIR}/lib/clang/${platform}/bin/libclang.dll"
+    "${CMAKE_SOURCE_DIR}/lib/jansson/${platform}/bin/jansson.dll"
     )
 
-    # target_link_libraries(${EXECUTABLE}
-    #     LLVMX86AsmParser # MC, MCParser, Support, X86Desc, X86Info
-    #     LLVMX86Desc # MC, Support, X86AsmPrinter, X86Info
-    #     LLVMX86AsmPrinter # MC, Support, X86Utils
-    #     LLVMX86Info # MC, Support, Target
-    #     LLVMX86Utils # Core, Support
-    #     LLVMipo
-    #     LLVMScalarOpts
-    #     LLVMInstCombine
-    #     LLVMTransformUtils
-    #     LLVMAnalysis
-    #     LLVMTarget
-    #     LLVMOption # Support
-    #     LLVMMCParser # MC, Support
-    #     LLVMMC # Object, Support
-    #     LLVMObject # BitReader, Core, Support
-    #     LLVMBitReader # Core, Support
-    #     LLVMCore # Support
-    #     LLVMSupport
-    # )
-
-    include(FindCurses)
-    target_link_libraries(${EXECUTABLE}
-        ${LIBJANSSON}
-        pthread
-        z
-        dl
-        tinfo
-        ${CURSES_LIBRARIES}
-    )
-endif()
-
-if (WIN32)
-    add_custom_command(TARGET ${EXECUTABLE} PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_SOURCE_DIR}/lib/clang/bin/libclang.dll"
-            $<TARGET_FILE_DIR:${EXECUTABLE}>)
-
-    add_custom_command(TARGET ${EXECUTABLE} PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_SOURCE_DIR}/lib/jansson/bin/jansson.dll"
-            $<TARGET_FILE_DIR:${EXECUTABLE}>)
-endif()
+add_custom_command(TARGET ${EXECUTABLE} PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${runtime_files}
+        $<TARGET_FILE_DIR:${EXECUTABLE}>)
 
 set(GENERATED_SOURCE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/protocol/decoders.h"
@@ -132,3 +75,10 @@ add_custom_command(OUTPUT ${GENERATED_SOURCE_FILES}
     DEPENDS "generator/protocol/structures.json" "${CMAKE_CURRENT_SOURCE_DIR}/../out/src/protocol_gen.js"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
     )
+
+add_custom_target(deploy
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:${EXECUTABLE}>
+        ${runtime_files}
+        ${CMAKE_SOURCE_DIR}/bin
+    DEPENDS ${EXECUTABLE})
