@@ -14,7 +14,9 @@
 #include "encoders.h"
 #include "decoders.h"
 #include "json_rpc.h"
+#include "path.h"
 
+#define REPARSE_RETRIES_MAX 5
 
 static char * m_signature_trigger_characters[] = {"(", ","};
 static char * m_completion_trigger_characters[] = {".", ">", ":"};
@@ -69,25 +71,22 @@ static unit_t * add_unit(const char * p_path)
     unit_t *p_unit = unit_create(p_path,
                                  p_flags);
     ASSERT(p_unit);
+    unit_storage_add(p_unit);
     return p_unit;
 }
 
 static unit_t * get_or_create_unit(const char * p_filename)
 {
-    LOG("Fetching unit %s...\n", p_filename);
-    if (mp_current_unit && strcmp(mp_current_unit->p_filename, p_filename) == 0)//unit_includes_file(mp_current_unit, p_filename))
-    {
-        LOG("Is current unit.\n");
-        return mp_current_unit;
-    }
+    char * p_normalized_filename = normalize_path(p_filename);
 
     /* If this file is represented as a unit, reparse it. */
-    unit_t * p_unit = unit_storage_get(p_filename);
+    unit_t * p_unit = unit_storage_get(p_normalized_filename);
 
     if (!p_unit)
     {
-        p_unit = add_unit(p_filename);
+        p_unit = add_unit(p_normalized_filename);
     }
+    FREE(p_normalized_filename);
 
     if (!p_unit->active)
     {
@@ -96,17 +95,11 @@ static unit_t * get_or_create_unit(const char * p_filename)
         {
             LOG("Failed parsing unit\n");
             compile_flags_print(&p_unit->flags);
+            unit_storage_remove(p_unit->p_filename);
             return NULL;
         }
     }
-    if (p_unit)
-    {
-        if (mp_current_unit && mp_current_unit != p_unit)
-        {
-            unit_suspend(mp_current_unit);
-        }
-        mp_current_unit = p_unit;
-    }
+    mp_current_unit = p_unit;
     return p_unit;
 }
 /******************************************************************************
@@ -145,7 +138,7 @@ static void handle_request_initialize(const initialize_params_t * p_params, json
             .text_document_sync =
             {
                 .open_close = true,
-                .change = TEXT_DOCUMENT_SYNC_KIND_INCREMENTAL,
+                .change = TEXT_DOCUMENT_SYNC_KIND_FULL,
                 .save =
                 {
                     .include_text = false,
@@ -213,11 +206,18 @@ static void handle_notification_text_document_did_change(const did_change_text_d
         for (unsigned i = 0; i < p_params->content_changes_count; ++i)
         {
             LOG("Handle change #%u of %u\n", i, p_params->content_changes_count);
-            ASSERT(p_params->p_content_changes[i].valid_fields == TEXT_DOCUMENT_CONTENT_CHANGE_EVENT_FIELD_ALL);
-            unsaved_file_patch(p_params->text_document.uri.path,
-                               p_params->p_content_changes[i].text,
-                               &p_params->p_content_changes[i].range.start,
-                               (size_t) p_params->p_content_changes[i].range_length);
+            if (p_params->p_content_changes[i].valid_fields == TEXT_DOCUMENT_CONTENT_CHANGE_EVENT_FIELD_ALL)
+            {
+                unsaved_file_patch(p_params->text_document.uri.path,
+                                   p_params->p_content_changes[i].text,
+                                   &p_params->p_content_changes[i].range.start,
+                                   (size_t) p_params->p_content_changes[i].range_length);
+            }
+            else
+            {
+                ASSERT(p_params->p_content_changes[i].valid_fields == TEXT_DOCUMENT_CONTENT_CHANGE_EVENT_FIELD_TEXT);
+                unsaved_file_set(p_params->text_document.uri.path, p_params->p_content_changes[i].text);
+            }
         }
 
         LOG("Fetching unit %s (0x%p)\n", p_params->text_document.uri.path, p_params->text_document.uri.path);
@@ -229,17 +229,24 @@ static void handle_notification_text_document_did_change(const did_change_text_d
             LOG("\tFound file.\n");
 
             const unsaved_files_t * p_unsaved_files = unsaved_files_get();
-            if (unit_reparse(p_unit, p_unsaved_files->p_list, p_unsaved_files->count))
+            unsigned retries = 0;
+            while (!unit_reparse(p_unit, p_unsaved_files->p_list, p_unsaved_files->count) && retries < REPARSE_RETRIES_MAX)
             {
-                LOG("Reparse of %s successful\n", p_params->text_document.uri.path);
-                unit_diagnostics_get(p_unit, diag_callback, NULL, NULL);
+                retries++;
+            }
+
+            if (retries == REPARSE_RETRIES_MAX)
+            {
+                LOG("Reparse of %s failed. Removing unit.\n", p_unit->p_filename);
+                unit_storage_remove(p_unit->p_filename);
+                unit_free(p_unit);
+                p_unit = NULL;
+                mp_current_unit = NULL;
             }
             else
             {
-                LOG("Reparse of %s failed. Removing unit.\n", p_params->text_document.uri.path);
-                unit_storage_remove(p_params->text_document.uri.path);
-                unit_free(p_unit);
-                p_unit = NULL;
+                LOG("Reparse of %s successful\n", p_params->text_document.uri.path);
+                unit_diagnostics_get(p_unit, diag_callback, NULL, NULL);
             }
         }
     }
@@ -253,6 +260,7 @@ static void handle_notification_text_document_did_close(const did_close_text_doc
         if (p_unit)
         {
             unit_free(p_unit);
+            mp_current_unit = NULL;
         }
     }
 }
@@ -400,7 +408,6 @@ void command_handler_init(void)
     unit_init(&config);
     unit_storage_init();
     unsaved_files_init();
-    // LOG("Load compilation DB: %s\n", unit_storage_compilation_database_load("build/gcc52") ? "Success" : "Fail");
 
     lsp_request_handler_initialize_register(handle_request_initialize);
     lsp_notification_handler_text_document_did_save_register(handle_notification_text_document_did_save);
