@@ -72,23 +72,23 @@ static void alloc_record(void * p_memory, const char * p_file, unsigned line)
     if (!m_heap.p_table_total)
     {
         HashTableConf conf;
-        cc_hashtable_conf_init(&conf);
+        hashtable_conf_init(&conf);
         conf.hash = POINTER_HASH;
-        ASSERT(cc_hashtable_new_conf(&conf, &m_heap.p_table_total) == CC_OK);
-        ASSERT(cc_hashtable_new_conf(&conf, &m_heap.p_table_new) == CC_OK);
+        ASSERT(hashtable_new_conf(&conf, &m_heap.p_table_total) == CC_OK);
+        ASSERT(hashtable_new_conf(&conf, &m_heap.p_table_new) == CC_OK);
     }
     heap_alloc_t * p_alloc = malloc(sizeof(heap_alloc_t));
     ASSERT(p_alloc);
     p_alloc->p_file = p_file;
     p_alloc->line = line;
-    ASSERT(cc_hashtable_add(m_heap.p_table_total, p_memory, p_alloc) == CC_OK);
-    ASSERT(cc_hashtable_add(m_heap.p_table_new, p_memory, p_alloc) == CC_OK);
+    ASSERT(hashtable_add(m_heap.p_table_total, p_memory, p_alloc) == CC_OK);
+    ASSERT(hashtable_add(m_heap.p_table_new, p_memory, p_alloc) == CC_OK);
 }
 
 static void alloc_remove(void * p_memory)
 {
-    cc_hashtable_remove(m_heap.p_table_total, p_memory, NULL);
-    cc_hashtable_remove(m_heap.p_table_new, p_memory, NULL);
+    hashtable_remove(m_heap.p_table_total, p_memory, NULL);
+    hashtable_remove(m_heap.p_table_new, p_memory, NULL);
 }
 
 void * clang_server_malloc(size_t size, const char * p_file, unsigned line)
@@ -145,13 +145,13 @@ void clang_server_free(void * p_mem)
 void heap_dump(const char * p_title)
 {
     LOG("HEAP @ %s: %lld (%lld, %lld)\n", p_title, (int64_t) m_heap.allocs - (int64_t) m_heap.frees, m_heap.allocs, m_heap.frees);
-    if (cc_hashtable_size(m_heap.p_table_new) > 0)
+    if (hashtable_size(m_heap.p_table_new) > 0)
     {
         LOG("New entries:\n");
         HashTableIter iter;
-        cc_hashtable_iter_init(&iter, m_heap.p_table_new);
+        hashtable_iter_init(&iter, m_heap.p_table_new);
         TableEntry * p_entry;
-        while (cc_hashtable_iter_next(&iter, &p_entry) == CC_OK)
+        while (hashtable_iter_next(&iter, &p_entry) == CC_OK)
         {
             ASSERT(p_entry);
             heap_alloc_t * p_alloc = p_entry->value;
@@ -160,7 +160,7 @@ void heap_dump(const char * p_title)
             LOG("\t%s:%u\n", p_alloc->p_file, p_alloc->line);
         }
         LOG("--------------------\n");
-        cc_hashtable_remove_all(m_heap.p_table_new);
+        hashtable_remove_all(m_heap.p_table_new);
     }
 }
 #endif

@@ -8,14 +8,14 @@ static unsaved_files_t m_unsaved_files;
 
 void unsaved_files_init(void)
 {
-    ASSERT(cc_hashtable_new(&mp_unsaved_files) == CC_OK);
+    ASSERT(hashtable_new(&mp_unsaved_files) == CC_OK);
 }
 
 const unsaved_files_t * unsaved_files_get(void)
 {
     if (m_unsaved_files.p_list == NULL)
     {
-        size_t size = cc_hashtable_size(mp_unsaved_files);
+        size_t size = hashtable_size(mp_unsaved_files);
 
         if (size > 0)
         {
@@ -23,8 +23,8 @@ const unsaved_files_t * unsaved_files_get(void)
             struct CXUnsavedFile * p_file = &m_unsaved_files.p_list[0];
             HashTableIter it;
             TableEntry * p_entry = NULL;
-            cc_hashtable_iter_init(&it, mp_unsaved_files);
-            while (cc_hashtable_iter_next(&it, &p_entry) == CC_OK)
+            hashtable_iter_init(&it, mp_unsaved_files);
+            while (hashtable_iter_next(&it, &p_entry) == CC_OK)
             {
                 source_file_t * p_value = (source_file_t *) p_entry->value;
                 p_file->Filename = (const char *) p_entry->key;
@@ -57,13 +57,13 @@ void unsaved_files_invalidate(void)
 void unsaved_file_set(const char * p_filename, const char * p_contents)
 {
     source_file_t * p_file;
-    if (cc_hashtable_get(mp_unsaved_files, (void *) p_filename, &p_file) == CC_OK)
+    if (hashtable_get(mp_unsaved_files, (void *) p_filename, &p_file) == CC_OK)
     {
         source_file_contents_set(p_file, p_contents);
     }
     else
     {
-        ASSERT(cc_hashtable_add(mp_unsaved_files, STRDUP(p_filename), source_file_create(p_contents)) == CC_OK);
+        ASSERT(hashtable_add(mp_unsaved_files, STRDUP(p_filename), source_file_create(p_contents)) == CC_OK);
     }
     unsaved_files_invalidate();
 }
@@ -72,7 +72,7 @@ void unsaved_file_patch(const char * p_filename, const char * p_new_contents, co
 {
     LOG("Patching unsaved file %s...\n", p_filename);
     source_file_t * p_file = NULL;
-    ASSERT(cc_hashtable_get(mp_unsaved_files, (void *) p_filename, &p_file) == CC_OK);
+    ASSERT(hashtable_get(mp_unsaved_files, (void *) p_filename, &p_file) == CC_OK);
     LOG("Found unsaved file...\n");
     source_file_patch(p_file, p_new_contents, p_start_pos, old_len);
     unsaved_files_invalidate();
@@ -82,7 +82,7 @@ bool unsaved_file_remove(const char * p_filename)
 {
     LOG("Remove unsaved file %s\n", p_filename);
     source_file_t * p_file;
-    bool success = (cc_hashtable_remove(mp_unsaved_files, (void *) p_filename, &p_file) == CC_OK);
+    bool success = (hashtable_remove(mp_unsaved_files, (void *) p_filename, &p_file) == CC_OK);
     if (success)
     {
         source_file_free(p_file);

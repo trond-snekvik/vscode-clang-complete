@@ -25,8 +25,8 @@ static unit_storage_t m_storage;
 
 void unit_storage_init(void)
 {
-    ASSERT(cc_hashtable_new(&m_storage.p_table) == CC_OK);
-    ASSERT(cc_hashtable_new(&m_storage.p_directories) == CC_OK);
+    ASSERT(hashtable_new(&m_storage.p_table) == CC_OK);
+    ASSERT(hashtable_new(&m_storage.p_directories) == CC_OK);
 }
 
 bool unit_storage_compilation_database_load(const char * p_directory)
@@ -106,13 +106,13 @@ bool unit_storage_compilation_database_load(const char * p_directory)
                 char * p_directory = path_directory(p_filename);
                 ASSERT(p_directory);
                 compile_directory_t * p_dir;
-                if (cc_hashtable_get(m_storage.p_directories, p_directory, &p_dir) != CC_OK)
+                if (hashtable_get(m_storage.p_directories, p_directory, &p_dir) != CC_OK)
                 {
                     p_dir = MALLOC(sizeof(compile_directory_t));
                     p_dir->p_path = p_directory;
                     compile_flags_clone(&p_dir->flags, &flags);
                     LOG("Added directory %s\n", p_directory);
-                    ASSERT(cc_hashtable_add(m_storage.p_directories, p_directory, p_dir) == CC_OK);
+                    ASSERT(hashtable_add(m_storage.p_directories, p_directory, p_dir) == CC_OK);
                 }
                 else
                 {
@@ -139,7 +139,7 @@ bool unit_storage_compilation_database_load(const char * p_directory)
 void unit_storage_add(unit_t * p_unit)
 {
     ASSERT(unit_storage_get(p_unit->p_filename) == NULL);
-    ASSERT(cc_hashtable_add(m_storage.p_table, (void *) p_unit->p_filename, p_unit) == CC_OK);
+    ASSERT(hashtable_add(m_storage.p_table, (void *) p_unit->p_filename, p_unit) == CC_OK);
 }
 
 unit_t * unit_storage_get(const char * p_filename)
@@ -147,7 +147,7 @@ unit_t * unit_storage_get(const char * p_filename)
     unit_t * p_unit = NULL;
     char * p_filename_normalized = normalize_path(p_filename);
 
-    bool found = (cc_hashtable_get(m_storage.p_table, (void *) p_filename_normalized, &p_unit) == CC_OK);
+    bool found = (hashtable_get(m_storage.p_table, (void *) p_filename_normalized, &p_unit) == CC_OK);
 
     FREE(p_filename_normalized);
     return (found ? p_unit : NULL);
@@ -156,7 +156,7 @@ unit_t * unit_storage_get(const char * p_filename)
 unit_t * unit_storage_remove(const char * p_filename)
 {
     unit_t * p_unit = NULL;
-    if (cc_hashtable_remove(m_storage.p_table, (void *) p_filename, &p_unit) == CC_OK)
+    if (hashtable_remove(m_storage.p_table, (void *) p_filename, &p_unit) == CC_OK)
     {
         return p_unit;
     }
@@ -168,7 +168,7 @@ unit_t * unit_storage_remove(const char * p_filename)
 
 bool unit_storage_flags_suggest(const char * p_filename, compile_flags_t * p_flags)
 {
-    if (cc_hashtable_size(m_storage.p_directories) == 0)
+    if (hashtable_size(m_storage.p_directories) == 0)
     {
         return false;
     }
@@ -176,7 +176,7 @@ bool unit_storage_flags_suggest(const char * p_filename, compile_flags_t * p_fla
 
     // First look for a known folder:
     compile_directory_t * p_dir;
-    if (cc_hashtable_get(m_storage.p_directories, p_dirname, &p_dir) == CC_OK)
+    if (hashtable_get(m_storage.p_directories, p_dirname, &p_dir) == CC_OK)
     {
         *p_flags = p_dir->flags;
     }
@@ -186,9 +186,9 @@ bool unit_storage_flags_suggest(const char * p_filename, compile_flags_t * p_fla
         p_dir = NULL;
         size_t match_len = 0;
         HashTableIter iter;
-        cc_hashtable_iter_init(&iter, m_storage.p_directories);
+        hashtable_iter_init(&iter, m_storage.p_directories);
         TableEntry * p_entry;
-        while (cc_hashtable_iter_next(&iter, &p_entry) == CC_OK)
+        while (hashtable_iter_next(&iter, &p_entry) == CC_OK)
         {
             compile_directory_t * p_it = p_entry->value;
             char * p_common_parent = path_closest_common_ancestor(p_dirname, p_it->p_path);
