@@ -365,9 +365,9 @@ void json_rpc_listen(FILE * stream)
             char * p_c = p_buffer;
             do
             {
-                size_t count = fread(p_c, 1, min(&p_buffer[buffer_size] - p_c, length), stream);
+                size_t count = fread(p_c, 1, min((size_t)(&p_buffer[buffer_size] - p_c), length), stream);
                 p_c += count;
-            } while (p_c - p_buffer < length);
+            } while ((size_t)(p_c - p_buffer) < length);
             *p_c = '\0';
 
             LOG("Handling buffer: %s\n", p_buffer);

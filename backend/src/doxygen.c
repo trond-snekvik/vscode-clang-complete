@@ -417,7 +417,7 @@ static doxygen_arg_t * doxygen_arg_parse(const char ** pp_comment)
     return p_arg;
 }
 
-const doxygen_return_t * doxygen_return_parse(const char ** pp_comment, bool is_retval)
+static doxygen_return_t * doxygen_return_parse(const char ** pp_comment, bool is_retval)
 {
     doxygen_return_t * p_return = MALLOC(sizeof(doxygen_return_t));
     if (is_retval)
@@ -434,11 +434,13 @@ const doxygen_return_t * doxygen_return_parse(const char ** pp_comment, bool is_
         p_return->p_value = NULL;
     }
 
-    unsigned description_len = block_length(*pp_comment);
+    size_t description_len = block_length(*pp_comment);
     /* The description will automatically end at the next \n\n */
     const char * p_next_block = next_block(*pp_comment);
     if (p_next_block)
-        description_len = min(description_len, p_next_block - *pp_comment);
+    {
+        description_len = min(description_len, (size_t) (p_next_block - *pp_comment));
+    }
 
     if (description_len > 0)
     {
@@ -468,7 +470,9 @@ doxygen_function_t * doxygen_function_parse(const char * p_comment)
     /* The brief will automatically end at the next \n\n */
     const char * p_next_block = next_block(p_brief);
     if (p_next_block)
-        brief_len = min(brief_len, p_next_block - p_brief);
+    {
+        brief_len = min(brief_len, (unsigned) (p_next_block - p_brief));
+    }
 
     if (brief_len > 0)
     {
@@ -539,7 +543,7 @@ doxygen_function_t * doxygen_function_parse(const char * p_comment)
 }
 
 
-char * doxygen_to_markdown(doxygen_string_t string, bool skip_newline)
+char * doxygen_to_markdown(const char * string, bool skip_newline)
 {
     if (!string)
     {
@@ -765,8 +769,6 @@ char * doxygen_function_to_markdown(const doxygen_function_t * p_func, bool incl
 
     if (p_func->details)
     {
-        // if (p_func->brief) // only render "Details" header if we have a brief
-        //     p_dst += sprintf(p_dst, "%s", p_section_header);
         p_dst += sprintf(p_dst, "%s", doxygen_to_markdown(p_func->details, false));
     }
 
@@ -776,9 +778,11 @@ char * doxygen_function_to_markdown(const doxygen_function_t * p_func, bool incl
 
         for (unsigned i = 0; i < p_func->arg_count; ++i)
         {
-            const char * p_desc = doxygen_to_markdown(p_func->p_args[i].description, true);
+            char * p_desc = doxygen_to_markdown(p_func->p_args[i].description, true);
             if (has_param_directions)
+            {
                 p_dst += sprintf(p_dst, "| %s ", p_directions[p_func->p_args[i].dir]);
+            }
             p_dst += sprintf(p_dst, "| `%s` | %s \n", p_func->p_args[i].p_name, p_desc ? p_desc : "");
             FREE(p_desc);
         }
@@ -790,7 +794,7 @@ char * doxygen_function_to_markdown(const doxygen_function_t * p_func, bool incl
 
         for (unsigned i = 0; i < p_func->return_count; ++i)
         {
-            const char * p_desc = doxygen_to_markdown(p_func->p_returns[i].description, true);
+            char * p_desc = doxygen_to_markdown(p_func->p_returns[i].description, true);
             if (p_func->p_returns[i].p_value)
                 p_dst += sprintf(p_dst, "| `%s` ", p_func->p_returns[i].p_value);
             p_dst += sprintf(p_dst, "| %s\n", p_desc ? p_desc : "");

@@ -16,7 +16,7 @@
 #include "json_rpc.h"
 
 
-static const char * m_signature_trigger_characters[] = {"(", ","};
+static char * m_signature_trigger_characters[] = {"(", ","};
 static char * m_completion_trigger_characters[] = {".", ">", ":"};
 static compile_flags_t m_flags;
 
@@ -217,7 +217,7 @@ static void handle_notification_text_document_did_change(const did_change_text_d
             unsaved_file_patch(p_params->text_document.uri.path,
                                p_params->p_content_changes[i].text,
                                &p_params->p_content_changes[i].range.start,
-                               p_params->p_content_changes[i].range_length);
+                               (size_t) p_params->p_content_changes[i].range_length);
         }
 
         LOG("Fetching unit %s (0x%p)\n", p_params->text_document.uri.path, p_params->text_document.uri.path);

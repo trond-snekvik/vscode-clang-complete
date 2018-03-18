@@ -38,7 +38,7 @@ void source_file_patch(source_file_t * p_source_file, const char * p_new_content
     size_t new_len = strlen(p_new_contents);
     char * p_start_offset = position_to_offset(p_source_file, p_start_pos);
     ASSERT(p_start_offset);
-    LOG("LINE %u => OFFSET %u\n", p_start_pos->line, &p_start_offset[0] - &p_source_file->p_contents[0]);
+    LOG("LINE %lld => OFFSET %u\n", p_start_pos->line, &p_start_offset[0] - &p_source_file->p_contents[0]);
 
     if (new_len == old_len)
     {

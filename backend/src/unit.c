@@ -34,7 +34,7 @@ typedef struct
 typedef struct
 {
     bool found_file;
-    char * p_filename;
+    const char * p_filename;
 } inclusion_file_context_t;
 
 static CXIndex m_index;
@@ -575,7 +575,8 @@ bool unit_code_completion(unit_t *p_unit,
             }
 
             result.label = p_full_text;
-            char * p_markdown_doc = doxygen_to_markdown(clang_getCString(doc), false);
+            const char * p_doc = clang_getCString(doc);
+            char * p_markdown_doc = doxygen_to_markdown(p_doc, false);
             if (p_markdown_doc)
             {
                 result.documentation.kind = MARKUP_KIND_MARKUP;
@@ -609,7 +610,7 @@ bool unit_code_completion(unit_t *p_unit,
             }
 
             // LOG("GOT KIND %u: %s\n", result.kind, p_full_text);
-            const char * p_commit_chars_function[] = {"("};
+            char * p_commit_chars_function[] = {"("};
 
             if (result.kind == COMPLETION_ITEM_KIND_FUNCTION)
             {
@@ -663,8 +664,8 @@ unsigned unit_function_signature_get(unit_t *p_unit,
     unsigned param_index = 0;
     CXCursor definition_cursor = get_function_cursor(p_unit,
                                                      p_position->text_document.uri.path,
-                                                     p_position->position.line + 1,
-                                                     p_position->position.character + 1,
+                                                     (unsigned) p_position->position.line + 1,
+                                                     (unsigned) p_position->position.character + 1,
                                                      &param_index);
     int arg_count = clang_Cursor_getNumArguments(definition_cursor);
 
@@ -682,7 +683,7 @@ unsigned unit_function_signature_get(unit_t *p_unit,
             if (p_definition->p_documentation)
             {
                 p_doxygen = doxygen_function_parse(p_definition->p_documentation);
-                const char * p_doc_markdown = doxygen_function_to_markdown(p_doxygen, false, true);
+                char * p_doc_markdown = doxygen_function_to_markdown(p_doxygen, false, true);
 
                 if (false && p_doc_markdown)
                 {
@@ -786,8 +787,8 @@ void unit_definition_get(unit_t *p_unit,
 
     CXCursor cursor = cursor_get(p_unit,
                                  p_position->text_document.uri.path,
-                                 p_position->position.line + 1,
-                                 p_position->position.character + 1);
+                                 (unsigned) p_position->position.line + 1,
+                                 (unsigned) p_position->position.character + 1);
 
     bool is_reference;
     CXCursor definition_cursor = definition_cursor_get(cursor, &is_reference);
@@ -832,8 +833,8 @@ bool unit_hover_get(unit_t * p_unit,
 
     CXCursor cursor = cursor_get(p_unit,
                                  p_position->text_document.uri.path,
-                                 p_position->position.line + 1,
-                                 p_position->position.character + 1);
+                                 (unsigned) p_position->position.line + 1,
+                                 (unsigned) p_position->position.character + 1);
 
     bool is_reference;
     CXCursor definition_cursor = definition_cursor_get(cursor, &is_reference);

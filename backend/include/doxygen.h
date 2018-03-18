@@ -8,18 +8,18 @@ typedef enum
     DOXYGEN_ARG_DIRECTION_IN_OUT = (DOXYGEN_ARG_DIRECTION_IN | DOXYGEN_ARG_DIRECTION_OUT),
 } doxygen_arg_direction_t;
 
-typedef const char * doxygen_string_t;
+typedef char * doxygen_string_t;
 
 typedef struct
 {
-    const char * p_name;
+    char * p_name;
     doxygen_arg_direction_t dir;
     doxygen_string_t description;
 } doxygen_arg_t;
 
 typedef struct
 {
-    const char * p_value;
+    char * p_value;
     doxygen_string_t description;
 } doxygen_return_t;
 
@@ -36,7 +36,7 @@ typedef struct
 doxygen_function_t * doxygen_function_parse(const char * p_comment);
 doxygen_string_t doxygen_description_parse(const char * p_comment);
 
-char * doxygen_to_markdown(doxygen_string_t string, bool skip_newline);
+char * doxygen_to_markdown(const char * string, bool skip_newline);
 
 char * doxygen_function_to_markdown(const doxygen_function_t * p_function, bool include_params, bool include_returns);
 

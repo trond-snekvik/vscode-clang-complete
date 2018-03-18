@@ -6,7 +6,7 @@
 typedef struct
 {
     char * p_contents;
-    uint64_t size;
+    size_t size;
     bool unsaved;
 } source_file_t;
 

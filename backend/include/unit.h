@@ -29,7 +29,7 @@ typedef struct
 
     CXTranslationUnit tu;
     bool active;
-    const char ** p_diag_files;
+    char ** p_diag_files;
     unsigned diag_file_count;
 
     fixit_t * p_fixits;
