@@ -353,11 +353,12 @@ void json_rpc_listen(FILE * stream)
     while (m_running)
     {
         size_t length;
-        if (scanf(CONTENT_LENGTH_HEADER, &length))
+        if (fscanf(stream, CONTENT_LENGTH_HEADER, &length))
         {
             if (buffer_size < length)
             {
                 buffer_size = length + 1;
+                LOG("Increasing buffer size to %u\n", buffer_size);
                 p_buffer = REALLOC(p_buffer, buffer_size);
                 ASSERT(p_buffer);
             }
