@@ -6,19 +6,34 @@ set(RUNTIME_OUTPUT_DIRECTORY ../lib)
 
 if (WIN32)
     set(platform "win32")
+    find_program(CLANG_EXE clang)
+    if (NOT CLANG_DIR)
+        if (NOT CLANG_EXE STREQUAL CLANG_EXE-NOTFOUND)
+            get_filename_component(CLANG_EXE_DIRECTORY CLANG_EXE DIRECTORY)
+            file(TO_NATIVE_PATH "${CLANG_EXE_DIRECTORY}/.." CLANG_DIR)
+        else()
+            message(FATAL_ERROR "Couldn't locate libclang.")
+        endif()
+    endif()
+    find_file(CLANG_RUNTIME libclang.dll
+              PATHS "${CLANG_DIR}/bin")
     find_library(LIBCLANG libclang
-                 PATHS lib/clang/${platform}/bin
-                 NO_DEFAULT_PATH)
+                 PATHS "${CLANG_DIR}/lib")
     set(node "node")
 endif()
 
 set (CMAKE_C_STANDARD 99)
 
-find_library(LIBJANSSON jansson lib/jansson/${platform}/bin)
+find_library(LIBJANSSON jansson
+             PATHS ${JANSSON_DIR}/lib
+             PATH_SUFFIXES Release Debug)
+find_file(JANSSON_RUNTIME jansson.dll
+             PATHS ${JANSSON_DIR}/bin
+             PATH_SUFFIXES Release Debug)
 
 include_directories(
-    "lib/clang/${platform}/include"
-    "lib/jansson/${platform}/include"
+    "${CLANG_DIR}/include"
+    "${JANSSON_DIR}/include"
     "include"
     "include/protocol"
     "${CMAKE_CURRENT_SOURCE_DIR}/lib/Collections-C/src/include"
@@ -55,8 +70,8 @@ target_link_libraries(${EXECUTABLE} PRIVATE
     ${LIBJANSSON})
 
 set(runtime_files
-    "${CMAKE_SOURCE_DIR}/lib/clang/${platform}/bin/libclang.dll"
-    "${CMAKE_SOURCE_DIR}/lib/jansson/${platform}/bin/jansson.dll"
+    "${CLANG_RUNTIME}"
+    "${JANSSON_RUNTIME}"
     )
 
 add_custom_command(TARGET ${EXECUTABLE} PRE_BUILD
@@ -79,9 +94,12 @@ add_custom_command(OUTPUT ${GENERATED_SOURCE_FILES}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
     )
 
+add_custom_command(deploy_make_dir
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_SOURCE_DIR}/bin)
+
 add_custom_target(deploy
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:${EXECUTABLE}>
         ${runtime_files}
         ${CMAKE_SOURCE_DIR}/bin
-    DEPENDS ${EXECUTABLE})
+    DEPENDS ${EXECUTABLE} deploy_make_dir)
