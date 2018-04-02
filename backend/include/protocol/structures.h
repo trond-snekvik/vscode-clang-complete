@@ -59,7 +59,7 @@ typedef enum
 {
     CLIENT_CAPABILITIES_FIELD_WORKSPACE     = (1 << 0),
     CLIENT_CAPABILITIES_FIELD_TEXT_DOCUMENT = (1 << 1),
-    CLIENT_CAPABILITIES_FIELD_EXPERIMENAL   = (1 << 2),
+    CLIENT_CAPABILITIES_FIELD_EXPERIMENTAL  = (1 << 2),
 
     CLIENT_CAPABILITIES_FIELD_ALL = (0x7),
 } client_capabilities_fields_t;
@@ -643,7 +643,7 @@ typedef struct
 
     workspace_client_capabilities_t workspace;
     text_document_client_capabilities_t text_document;
-    json_t * experimenal;
+    json_t * experimental;
 } client_capabilities_t;
 
 typedef struct

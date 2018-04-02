@@ -34,8 +34,6 @@ initialization_options_t decode_initialization_options(json_t * p_json)
         }
         retval.valid_fields |= INITIALIZATION_OPTIONS_FIELD_FLAGS;
     }
-    json_decref(p_flags_json);
-
 
     json_t * p_compilation_database_json = json_object_get(p_json, "compilationDatabase");
     if (json_is_array(p_compilation_database_json))
@@ -51,11 +49,11 @@ initialization_options_t decode_initialization_options(json_t * p_json)
         }
         retval.valid_fields |= INITIALIZATION_OPTIONS_FIELD_COMPILATION_DATABASE;
     }
-    json_decref(p_compilation_database_json);
 
 
     return retval;
 }
+
 workspace_client_capabilities_t decode_workspace_client_capabilities(json_t * p_json)
 {
     workspace_client_capabilities_t retval;
@@ -67,8 +65,6 @@ workspace_client_capabilities_t decode_workspace_client_capabilities(json_t * p_
         retval.apply_edit = decode_boolean(p_apply_edit_json);
         retval.valid_fields |= WORKSPACE_CLIENT_CAPABILITIES_FIELD_APPLY_EDIT;
     }
-    json_decref(p_apply_edit_json);
-
 
     json_t * p_workspace_edit_json = json_object_get(p_json, "workspaceEdit");
     if (json_is_object(p_workspace_edit_json))
@@ -78,11 +74,9 @@ workspace_client_capabilities_t decode_workspace_client_capabilities(json_t * p_
         {
             retval.workspace_edit.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= WORKSPACE_CLIENT_CAPABILITIES_FIELD_WORKSPACE_EDIT;
     }
-
 
     json_t * p_did_change_configuration_json = json_object_get(p_json, "didChangeConfiguration");
     if (json_is_object(p_did_change_configuration_json))
@@ -92,11 +86,9 @@ workspace_client_capabilities_t decode_workspace_client_capabilities(json_t * p_
         {
             retval.did_change_configuration.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= WORKSPACE_CLIENT_CAPABILITIES_FIELD_DID_CHANGE_CONFIGURATION;
     }
-
 
     json_t * p_did_change_watched_files_json = json_object_get(p_json, "didChangeWatchedFiles");
     if (json_is_object(p_did_change_watched_files_json))
@@ -106,11 +98,9 @@ workspace_client_capabilities_t decode_workspace_client_capabilities(json_t * p_
         {
             retval.did_change_watched_files.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= WORKSPACE_CLIENT_CAPABILITIES_FIELD_DID_CHANGE_WATCHED_FILES;
     }
-
 
     json_t * p_symbol_json = json_object_get(p_json, "symbol");
     if (json_is_object(p_symbol_json))
@@ -120,11 +110,9 @@ workspace_client_capabilities_t decode_workspace_client_capabilities(json_t * p_
         {
             retval.symbol.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= WORKSPACE_CLIENT_CAPABILITIES_FIELD_SYMBOL;
     }
-
 
     json_t * p_execute_command_json = json_object_get(p_json, "executeCommand");
     if (json_is_object(p_execute_command_json))
@@ -134,7 +122,6 @@ workspace_client_capabilities_t decode_workspace_client_capabilities(json_t * p_
         {
             retval.execute_command.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= WORKSPACE_CLIENT_CAPABILITIES_FIELD_EXECUTE_COMMAND;
     }
@@ -142,6 +129,7 @@ workspace_client_capabilities_t decode_workspace_client_capabilities(json_t * p_
 
     return retval;
 }
+
 text_document_client_capabilities_t decode_text_document_client_capabilities(json_t * p_json)
 {
     text_document_client_capabilities_t retval;
@@ -155,35 +143,27 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
         {
             retval.synchronization.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
-
 
         json_t * p_will_save_json = json_object_get(p_json, "willSave");
         if (json_is_boolean(p_will_save_json))
         {
             retval.synchronization.will_save = decode_boolean(p_will_save_json);
         }
-        json_decref(p_will_save_json);
-
 
         json_t * p_will_save_wait_until_json = json_object_get(p_json, "willSaveWaitUntil");
         if (json_is_boolean(p_will_save_wait_until_json))
         {
             retval.synchronization.will_save_wait_until = decode_boolean(p_will_save_wait_until_json);
         }
-        json_decref(p_will_save_wait_until_json);
-
 
         json_t * p_did_save_json = json_object_get(p_json, "didSave");
         if (json_is_boolean(p_did_save_json))
         {
             retval.synchronization.did_save = decode_boolean(p_did_save_json);
         }
-        json_decref(p_did_save_json);
 
         retval.valid_fields |= TEXT_DOCUMENT_CLIENT_CAPABILITIES_FIELD_SYNCHRONIZATION;
     }
-
 
     json_t * p_completion_json = json_object_get(p_json, "completion");
     if (json_is_object(p_completion_json))
@@ -193,19 +173,15 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
         {
             retval.completion.snippet_support = decode_boolean(p_snippet_support_json);
         }
-        json_decref(p_snippet_support_json);
-
 
         json_t * p_commit_characters_support_json = json_object_get(p_json, "commitCharactersSupport");
         if (json_is_boolean(p_commit_characters_support_json))
         {
             retval.completion.commit_characters_support = decode_boolean(p_commit_characters_support_json);
         }
-        json_decref(p_commit_characters_support_json);
 
         retval.valid_fields |= TEXT_DOCUMENT_CLIENT_CAPABILITIES_FIELD_COMPLETION;
     }
-
 
     json_t * p_hover_json = json_object_get(p_json, "hover");
     if (json_is_object(p_hover_json))
@@ -215,11 +191,9 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
         {
             retval.hover.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= TEXT_DOCUMENT_CLIENT_CAPABILITIES_FIELD_HOVER;
     }
-
 
     json_t * p_signature_help_json = json_object_get(p_json, "signatureHelp");
     if (json_is_object(p_signature_help_json))
@@ -229,8 +203,6 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
         {
             retval.signature_help.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
-
 
         json_t * p_signature_information_json = json_object_get(p_json, "signatureInformation");
         if (json_is_object(p_signature_information_json))
@@ -248,13 +220,11 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
                     retval.signature_help.signature_information.p_documentation_format[index] = decode_string(p_it);
                 }
             }
-            json_decref(p_documentation_format_json);
 
         }
 
         retval.valid_fields |= TEXT_DOCUMENT_CLIENT_CAPABILITIES_FIELD_SIGNATURE_HELP;
     }
-
 
     json_t * p_references_json = json_object_get(p_json, "references");
     if (json_is_object(p_references_json))
@@ -264,11 +234,9 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
         {
             retval.references.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= TEXT_DOCUMENT_CLIENT_CAPABILITIES_FIELD_REFERENCES;
     }
-
 
     json_t * p_document_highlight_json = json_object_get(p_json, "documentHighlight");
     if (json_is_object(p_document_highlight_json))
@@ -278,11 +246,9 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
         {
             retval.document_highlight.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= TEXT_DOCUMENT_CLIENT_CAPABILITIES_FIELD_DOCUMENT_HIGHLIGHT;
     }
-
 
     json_t * p_document_symbol_json = json_object_get(p_json, "documentSymbol");
     if (json_is_object(p_document_symbol_json))
@@ -292,11 +258,9 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
         {
             retval.document_symbol.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= TEXT_DOCUMENT_CLIENT_CAPABILITIES_FIELD_DOCUMENT_SYMBOL;
     }
-
 
     json_t * p_formatting_json = json_object_get(p_json, "formatting");
     if (json_is_object(p_formatting_json))
@@ -306,11 +270,9 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
         {
             retval.formatting.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= TEXT_DOCUMENT_CLIENT_CAPABILITIES_FIELD_FORMATTING;
     }
-
 
     json_t * p_on_type_formatting_json = json_object_get(p_json, "onTypeFormatting");
     if (json_is_object(p_on_type_formatting_json))
@@ -320,11 +282,9 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
         {
             retval.on_type_formatting.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= TEXT_DOCUMENT_CLIENT_CAPABILITIES_FIELD_ON_TYPE_FORMATTING;
     }
-
 
     json_t * p_definition_json = json_object_get(p_json, "definition");
     if (json_is_object(p_definition_json))
@@ -334,11 +294,9 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
         {
             retval.definition.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= TEXT_DOCUMENT_CLIENT_CAPABILITIES_FIELD_DEFINITION;
     }
-
 
     json_t * p_code_action_json = json_object_get(p_json, "codeAction");
     if (json_is_object(p_code_action_json))
@@ -348,11 +306,9 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
         {
             retval.code_action.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= TEXT_DOCUMENT_CLIENT_CAPABILITIES_FIELD_CODE_ACTION;
     }
-
 
     json_t * p_code_lens_json = json_object_get(p_json, "codeLens");
     if (json_is_object(p_code_lens_json))
@@ -362,11 +318,9 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
         {
             retval.code_lens.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= TEXT_DOCUMENT_CLIENT_CAPABILITIES_FIELD_CODE_LENS;
     }
-
 
     json_t * p_document_link_json = json_object_get(p_json, "documentLink");
     if (json_is_object(p_document_link_json))
@@ -376,11 +330,9 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
         {
             retval.document_link.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= TEXT_DOCUMENT_CLIENT_CAPABILITIES_FIELD_DOCUMENT_LINK;
     }
-
 
     json_t * p_rename_json = json_object_get(p_json, "rename");
     if (json_is_object(p_rename_json))
@@ -390,7 +342,6 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
         {
             retval.rename.dynamic_registration = decode_boolean(p_dynamic_registration_json);
         }
-        json_decref(p_dynamic_registration_json);
 
         retval.valid_fields |= TEXT_DOCUMENT_CLIENT_CAPABILITIES_FIELD_RENAME;
     }
@@ -398,6 +349,7 @@ text_document_client_capabilities_t decode_text_document_client_capabilities(jso
 
     return retval;
 }
+
 client_capabilities_t decode_client_capabilities(json_t * p_json)
 {
     client_capabilities_t retval;
@@ -409,8 +361,6 @@ client_capabilities_t decode_client_capabilities(json_t * p_json)
         retval.workspace = decode_workspace_client_capabilities(p_workspace_json);
         retval.valid_fields |= CLIENT_CAPABILITIES_FIELD_WORKSPACE;
     }
-    json_decref(p_workspace_json);
-
 
     json_t * p_text_document_json = json_object_get(p_json, "textDocument");
     if (json_is_object(p_text_document_json))
@@ -418,20 +368,18 @@ client_capabilities_t decode_client_capabilities(json_t * p_json)
         retval.text_document = decode_text_document_client_capabilities(p_text_document_json);
         retval.valid_fields |= CLIENT_CAPABILITIES_FIELD_TEXT_DOCUMENT;
     }
-    json_decref(p_text_document_json);
 
-
-    json_t * p_experimenal_json = json_object_get(p_json, "experimenal");
-    json_incref(p_experimenal_json);
-    retval.experimenal = p_experimenal_json;
-    if (p_experimenal_json != NULL)
+    json_t * p_experimental_json = json_object_get(p_json, "experimental");
+    if (p_experimental_json != NULL)
     {
-        retval.valid_fields |= CLIENT_CAPABILITIES_FIELD_EXPERIMENAL;
+        retval.experimental = json_deep_copy(p_experimental_json);
+        retval.valid_fields |= CLIENT_CAPABILITIES_FIELD_EXPERIMENTAL;
     }
 
 
     return retval;
 }
+
 completion_options_t decode_completion_options(json_t * p_json)
 {
     completion_options_t retval;
@@ -443,8 +391,6 @@ completion_options_t decode_completion_options(json_t * p_json)
         retval.resolve_provider = decode_boolean(p_resolve_provider_json);
         retval.valid_fields |= COMPLETION_OPTIONS_FIELD_RESOLVE_PROVIDER;
     }
-    json_decref(p_resolve_provider_json);
-
 
     json_t * p_trigger_characters_json = json_object_get(p_json, "triggerCharacters");
     if (json_is_array(p_trigger_characters_json))
@@ -460,11 +406,11 @@ completion_options_t decode_completion_options(json_t * p_json)
         }
         retval.valid_fields |= COMPLETION_OPTIONS_FIELD_TRIGGER_CHARACTERS;
     }
-    json_decref(p_trigger_characters_json);
 
 
     return retval;
 }
+
 signature_help_options_t decode_signature_help_options(json_t * p_json)
 {
     signature_help_options_t retval;
@@ -484,11 +430,11 @@ signature_help_options_t decode_signature_help_options(json_t * p_json)
         }
         retval.valid_fields |= SIGNATURE_HELP_OPTIONS_FIELD_TRIGGER_CHARACTERS;
     }
-    json_decref(p_trigger_characters_json);
 
 
     return retval;
 }
+
 code_lens_options_t decode_code_lens_options(json_t * p_json)
 {
     code_lens_options_t retval;
@@ -500,11 +446,11 @@ code_lens_options_t decode_code_lens_options(json_t * p_json)
         retval.resolve_provider = decode_boolean(p_resolve_provider_json);
         retval.valid_fields |= CODE_LENS_OPTIONS_FIELD_RESOLVE_PROVIDER;
     }
-    json_decref(p_resolve_provider_json);
 
 
     return retval;
 }
+
 save_options_t decode_save_options(json_t * p_json)
 {
     save_options_t retval;
@@ -516,11 +462,11 @@ save_options_t decode_save_options(json_t * p_json)
         retval.include_text = decode_boolean(p_include_text_json);
         retval.valid_fields |= SAVE_OPTIONS_FIELD_INCLUDE_TEXT;
     }
-    json_decref(p_include_text_json);
 
 
     return retval;
 }
+
 text_document_sync_options_t decode_text_document_sync_options(json_t * p_json)
 {
     text_document_sync_options_t retval;
@@ -532,8 +478,6 @@ text_document_sync_options_t decode_text_document_sync_options(json_t * p_json)
         retval.open_close = decode_boolean(p_open_close_json);
         retval.valid_fields |= TEXT_DOCUMENT_SYNC_OPTIONS_FIELD_OPEN_CLOSE;
     }
-    json_decref(p_open_close_json);
-
 
     json_t * p_change_json = json_object_get(p_json, "change");
     if (json_is_object(p_change_json))
@@ -541,8 +485,6 @@ text_document_sync_options_t decode_text_document_sync_options(json_t * p_json)
         retval.change = decode_text_document_sync_kind(p_change_json);
         retval.valid_fields |= TEXT_DOCUMENT_SYNC_OPTIONS_FIELD_CHANGE;
     }
-    json_decref(p_change_json);
-
 
     json_t * p_will_save_json = json_object_get(p_json, "willSave");
     if (json_is_boolean(p_will_save_json))
@@ -550,8 +492,6 @@ text_document_sync_options_t decode_text_document_sync_options(json_t * p_json)
         retval.will_save = decode_boolean(p_will_save_json);
         retval.valid_fields |= TEXT_DOCUMENT_SYNC_OPTIONS_FIELD_WILL_SAVE;
     }
-    json_decref(p_will_save_json);
-
 
     json_t * p_will_save_wait_until_json = json_object_get(p_json, "willSaveWaitUntil");
     if (json_is_boolean(p_will_save_wait_until_json))
@@ -559,8 +499,6 @@ text_document_sync_options_t decode_text_document_sync_options(json_t * p_json)
         retval.will_save_wait_until = decode_boolean(p_will_save_wait_until_json);
         retval.valid_fields |= TEXT_DOCUMENT_SYNC_OPTIONS_FIELD_WILL_SAVE_WAIT_UNTIL;
     }
-    json_decref(p_will_save_wait_until_json);
-
 
     json_t * p_save_json = json_object_get(p_json, "save");
     if (json_is_object(p_save_json))
@@ -568,11 +506,11 @@ text_document_sync_options_t decode_text_document_sync_options(json_t * p_json)
         retval.save = decode_save_options(p_save_json);
         retval.valid_fields |= TEXT_DOCUMENT_SYNC_OPTIONS_FIELD_SAVE;
     }
-    json_decref(p_save_json);
 
 
     return retval;
 }
+
 server_capabilities_t decode_server_capabilities(json_t * p_json)
 {
     server_capabilities_t retval;
@@ -584,8 +522,6 @@ server_capabilities_t decode_server_capabilities(json_t * p_json)
         retval.text_document_sync = decode_text_document_sync_options(p_text_document_sync_json);
         retval.valid_fields |= SERVER_CAPABILITIES_FIELD_TEXT_DOCUMENT_SYNC;
     }
-    json_decref(p_text_document_sync_json);
-
 
     json_t * p_hover_provider_json = json_object_get(p_json, "hoverProvider");
     if (json_is_boolean(p_hover_provider_json))
@@ -593,8 +529,6 @@ server_capabilities_t decode_server_capabilities(json_t * p_json)
         retval.hover_provider = decode_boolean(p_hover_provider_json);
         retval.valid_fields |= SERVER_CAPABILITIES_FIELD_HOVER_PROVIDER;
     }
-    json_decref(p_hover_provider_json);
-
 
     json_t * p_completion_provider_json = json_object_get(p_json, "completionProvider");
     if (json_is_object(p_completion_provider_json))
@@ -602,8 +536,6 @@ server_capabilities_t decode_server_capabilities(json_t * p_json)
         retval.completion_provider = decode_completion_options(p_completion_provider_json);
         retval.valid_fields |= SERVER_CAPABILITIES_FIELD_COMPLETION_PROVIDER;
     }
-    json_decref(p_completion_provider_json);
-
 
     json_t * p_signature_help_provider_json = json_object_get(p_json, "signatureHelpProvider");
     if (json_is_object(p_signature_help_provider_json))
@@ -611,8 +543,6 @@ server_capabilities_t decode_server_capabilities(json_t * p_json)
         retval.signature_help_provider = decode_signature_help_options(p_signature_help_provider_json);
         retval.valid_fields |= SERVER_CAPABILITIES_FIELD_SIGNATURE_HELP_PROVIDER;
     }
-    json_decref(p_signature_help_provider_json);
-
 
     json_t * p_definition_provider_json = json_object_get(p_json, "definitionProvider");
     if (json_is_boolean(p_definition_provider_json))
@@ -620,8 +550,6 @@ server_capabilities_t decode_server_capabilities(json_t * p_json)
         retval.definition_provider = decode_boolean(p_definition_provider_json);
         retval.valid_fields |= SERVER_CAPABILITIES_FIELD_DEFINITION_PROVIDER;
     }
-    json_decref(p_definition_provider_json);
-
 
     json_t * p_references_provider_json = json_object_get(p_json, "referencesProvider");
     if (json_is_boolean(p_references_provider_json))
@@ -629,8 +557,6 @@ server_capabilities_t decode_server_capabilities(json_t * p_json)
         retval.references_provider = decode_boolean(p_references_provider_json);
         retval.valid_fields |= SERVER_CAPABILITIES_FIELD_REFERENCES_PROVIDER;
     }
-    json_decref(p_references_provider_json);
-
 
     json_t * p_document_highlight_provider_json = json_object_get(p_json, "documentHighlightProvider");
     if (json_is_boolean(p_document_highlight_provider_json))
@@ -638,8 +564,6 @@ server_capabilities_t decode_server_capabilities(json_t * p_json)
         retval.document_highlight_provider = decode_boolean(p_document_highlight_provider_json);
         retval.valid_fields |= SERVER_CAPABILITIES_FIELD_DOCUMENT_HIGHLIGHT_PROVIDER;
     }
-    json_decref(p_document_highlight_provider_json);
-
 
     json_t * p_document_symbol_provider_json = json_object_get(p_json, "documentSymbolProvider");
     if (json_is_boolean(p_document_symbol_provider_json))
@@ -647,8 +571,6 @@ server_capabilities_t decode_server_capabilities(json_t * p_json)
         retval.document_symbol_provider = decode_boolean(p_document_symbol_provider_json);
         retval.valid_fields |= SERVER_CAPABILITIES_FIELD_DOCUMENT_SYMBOL_PROVIDER;
     }
-    json_decref(p_document_symbol_provider_json);
-
 
     json_t * p_workspace_symbol_provider_json = json_object_get(p_json, "workspaceSymbolProvider");
     if (json_is_boolean(p_workspace_symbol_provider_json))
@@ -656,8 +578,6 @@ server_capabilities_t decode_server_capabilities(json_t * p_json)
         retval.workspace_symbol_provider = decode_boolean(p_workspace_symbol_provider_json);
         retval.valid_fields |= SERVER_CAPABILITIES_FIELD_WORKSPACE_SYMBOL_PROVIDER;
     }
-    json_decref(p_workspace_symbol_provider_json);
-
 
     json_t * p_code_action_provider_json = json_object_get(p_json, "codeActionProvider");
     if (json_is_boolean(p_code_action_provider_json))
@@ -665,8 +585,6 @@ server_capabilities_t decode_server_capabilities(json_t * p_json)
         retval.code_action_provider = decode_boolean(p_code_action_provider_json);
         retval.valid_fields |= SERVER_CAPABILITIES_FIELD_CODE_ACTION_PROVIDER;
     }
-    json_decref(p_code_action_provider_json);
-
 
     json_t * p_code_lens_provider_json = json_object_get(p_json, "codeLensProvider");
     if (json_is_object(p_code_lens_provider_json))
@@ -674,8 +592,6 @@ server_capabilities_t decode_server_capabilities(json_t * p_json)
         retval.code_lens_provider = decode_code_lens_options(p_code_lens_provider_json);
         retval.valid_fields |= SERVER_CAPABILITIES_FIELD_CODE_LENS_PROVIDER;
     }
-    json_decref(p_code_lens_provider_json);
-
 
     json_t * p_document_formatting_provider_json = json_object_get(p_json, "documentFormattingProvider");
     if (json_is_boolean(p_document_formatting_provider_json))
@@ -683,11 +599,11 @@ server_capabilities_t decode_server_capabilities(json_t * p_json)
         retval.document_formatting_provider = decode_boolean(p_document_formatting_provider_json);
         retval.valid_fields |= SERVER_CAPABILITIES_FIELD_DOCUMENT_FORMATTING_PROVIDER;
     }
-    json_decref(p_document_formatting_provider_json);
 
 
     return retval;
 }
+
 markup_content_t decode_markup_content(json_t * p_json)
 {
     markup_content_t retval;
@@ -699,8 +615,6 @@ markup_content_t decode_markup_content(json_t * p_json)
         retval.kind = decode_string(p_kind_json);
         retval.valid_fields |= MARKUP_CONTENT_FIELD_KIND;
     }
-    json_decref(p_kind_json);
-
 
     json_t * p_value_json = json_object_get(p_json, "value");
     if (json_is_string(p_value_json))
@@ -708,7 +622,6 @@ markup_content_t decode_markup_content(json_t * p_json)
         retval.value = decode_string(p_value_json);
         retval.valid_fields |= MARKUP_CONTENT_FIELD_VALUE;
     }
-    json_decref(p_value_json);
 
 
     if ((retval.valid_fields & MARKUP_CONTENT_FIELD_REQUIRED) != MARKUP_CONTENT_FIELD_REQUIRED)
@@ -718,6 +631,7 @@ markup_content_t decode_markup_content(json_t * p_json)
     }
     return retval;
 }
+
 marked_string_t decode_marked_string(json_t * p_json)
 {
     marked_string_t retval;
@@ -729,8 +643,6 @@ marked_string_t decode_marked_string(json_t * p_json)
         retval.language = decode_string(p_language_json);
         retval.valid_fields |= MARKED_STRING_FIELD_LANGUAGE;
     }
-    json_decref(p_language_json);
-
 
     json_t * p_value_json = json_object_get(p_json, "value");
     if (json_is_string(p_value_json))
@@ -738,7 +650,6 @@ marked_string_t decode_marked_string(json_t * p_json)
         retval.value = decode_string(p_value_json);
         retval.valid_fields |= MARKED_STRING_FIELD_VALUE;
     }
-    json_decref(p_value_json);
 
 
     if ((retval.valid_fields & MARKED_STRING_FIELD_REQUIRED) != MARKED_STRING_FIELD_REQUIRED)
@@ -748,6 +659,7 @@ marked_string_t decode_marked_string(json_t * p_json)
     }
     return retval;
 }
+
 message_action_item_t decode_message_action_item(json_t * p_json)
 {
     message_action_item_t retval;
@@ -759,7 +671,6 @@ message_action_item_t decode_message_action_item(json_t * p_json)
         retval.title = decode_string(p_title_json);
         retval.valid_fields |= MESSAGE_ACTION_ITEM_FIELD_TITLE;
     }
-    json_decref(p_title_json);
 
 
     if ((retval.valid_fields & MESSAGE_ACTION_ITEM_FIELD_REQUIRED) != MESSAGE_ACTION_ITEM_FIELD_REQUIRED)
@@ -769,6 +680,7 @@ message_action_item_t decode_message_action_item(json_t * p_json)
     }
     return retval;
 }
+
 position_t decode_position(json_t * p_json)
 {
     position_t retval;
@@ -780,8 +692,6 @@ position_t decode_position(json_t * p_json)
         retval.line = decode_number(p_line_json);
         retval.valid_fields |= POSITION_FIELD_LINE;
     }
-    json_decref(p_line_json);
-
 
     json_t * p_character_json = json_object_get(p_json, "character");
     if (json_is_integer(p_character_json))
@@ -789,7 +699,6 @@ position_t decode_position(json_t * p_json)
         retval.character = decode_number(p_character_json);
         retval.valid_fields |= POSITION_FIELD_CHARACTER;
     }
-    json_decref(p_character_json);
 
 
     if ((retval.valid_fields & POSITION_FIELD_REQUIRED) != POSITION_FIELD_REQUIRED)
@@ -799,6 +708,7 @@ position_t decode_position(json_t * p_json)
     }
     return retval;
 }
+
 range_t decode_range(json_t * p_json)
 {
     range_t retval;
@@ -810,8 +720,6 @@ range_t decode_range(json_t * p_json)
         retval.start = decode_position(p_start_json);
         retval.valid_fields |= RANGE_FIELD_START;
     }
-    json_decref(p_start_json);
-
 
     json_t * p_end_json = json_object_get(p_json, "end");
     if (json_is_object(p_end_json))
@@ -819,7 +727,6 @@ range_t decode_range(json_t * p_json)
         retval.end = decode_position(p_end_json);
         retval.valid_fields |= RANGE_FIELD_END;
     }
-    json_decref(p_end_json);
 
 
     if ((retval.valid_fields & RANGE_FIELD_REQUIRED) != RANGE_FIELD_REQUIRED)
@@ -829,6 +736,7 @@ range_t decode_range(json_t * p_json)
     }
     return retval;
 }
+
 text_edit_t decode_text_edit(json_t * p_json)
 {
     text_edit_t retval;
@@ -840,8 +748,6 @@ text_edit_t decode_text_edit(json_t * p_json)
         retval.range = decode_range(p_range_json);
         retval.valid_fields |= TEXT_EDIT_FIELD_RANGE;
     }
-    json_decref(p_range_json);
-
 
     json_t * p_new_text_json = json_object_get(p_json, "newText");
     if (json_is_string(p_new_text_json))
@@ -849,7 +755,6 @@ text_edit_t decode_text_edit(json_t * p_json)
         retval.new_text = decode_string(p_new_text_json);
         retval.valid_fields |= TEXT_EDIT_FIELD_NEW_TEXT;
     }
-    json_decref(p_new_text_json);
 
 
     if ((retval.valid_fields & TEXT_EDIT_FIELD_REQUIRED) != TEXT_EDIT_FIELD_REQUIRED)
@@ -859,6 +764,7 @@ text_edit_t decode_text_edit(json_t * p_json)
     }
     return retval;
 }
+
 diagnostic_t decode_diagnostic(json_t * p_json)
 {
     diagnostic_t retval;
@@ -870,8 +776,6 @@ diagnostic_t decode_diagnostic(json_t * p_json)
         retval.range = decode_range(p_range_json);
         retval.valid_fields |= DIAGNOSTIC_FIELD_RANGE;
     }
-    json_decref(p_range_json);
-
 
     json_t * p_severity_json = json_object_get(p_json, "severity");
     if (json_is_object(p_severity_json))
@@ -879,8 +783,6 @@ diagnostic_t decode_diagnostic(json_t * p_json)
         retval.severity = decode_diagnostic_severity(p_severity_json);
         retval.valid_fields |= DIAGNOSTIC_FIELD_SEVERITY;
     }
-    json_decref(p_severity_json);
-
 
     json_t * p_code_json = json_object_get(p_json, "code");
     if (json_is_integer(p_code_json))
@@ -888,8 +790,6 @@ diagnostic_t decode_diagnostic(json_t * p_json)
         retval.code = decode_number(p_code_json);
         retval.valid_fields |= DIAGNOSTIC_FIELD_CODE;
     }
-    json_decref(p_code_json);
-
 
     json_t * p_source_json = json_object_get(p_json, "source");
     if (json_is_string(p_source_json))
@@ -897,8 +797,6 @@ diagnostic_t decode_diagnostic(json_t * p_json)
         retval.source = decode_string(p_source_json);
         retval.valid_fields |= DIAGNOSTIC_FIELD_SOURCE;
     }
-    json_decref(p_source_json);
-
 
     json_t * p_message_json = json_object_get(p_json, "message");
     if (json_is_string(p_message_json))
@@ -906,7 +804,6 @@ diagnostic_t decode_diagnostic(json_t * p_json)
         retval.message = decode_string(p_message_json);
         retval.valid_fields |= DIAGNOSTIC_FIELD_MESSAGE;
     }
-    json_decref(p_message_json);
 
 
     if ((retval.valid_fields & DIAGNOSTIC_FIELD_REQUIRED) != DIAGNOSTIC_FIELD_REQUIRED)
@@ -916,6 +813,7 @@ diagnostic_t decode_diagnostic(json_t * p_json)
     }
     return retval;
 }
+
 location_t decode_location(json_t * p_json)
 {
     location_t retval;
@@ -927,8 +825,6 @@ location_t decode_location(json_t * p_json)
         retval.uri = decode_uri(p_uri_json);
         retval.valid_fields |= LOCATION_FIELD_URI;
     }
-    json_decref(p_uri_json);
-
 
     json_t * p_range_json = json_object_get(p_json, "range");
     if (json_is_object(p_range_json))
@@ -936,7 +832,6 @@ location_t decode_location(json_t * p_json)
         retval.range = decode_range(p_range_json);
         retval.valid_fields |= LOCATION_FIELD_RANGE;
     }
-    json_decref(p_range_json);
 
 
     if ((retval.valid_fields & LOCATION_FIELD_REQUIRED) != LOCATION_FIELD_REQUIRED)
@@ -946,6 +841,7 @@ location_t decode_location(json_t * p_json)
     }
     return retval;
 }
+
 text_document_item_t decode_text_document_item(json_t * p_json)
 {
     text_document_item_t retval;
@@ -957,8 +853,6 @@ text_document_item_t decode_text_document_item(json_t * p_json)
         retval.uri = decode_uri(p_uri_json);
         retval.valid_fields |= TEXT_DOCUMENT_ITEM_FIELD_URI;
     }
-    json_decref(p_uri_json);
-
 
     json_t * p_language_id_json = json_object_get(p_json, "languageId");
     if (json_is_string(p_language_id_json))
@@ -966,8 +860,6 @@ text_document_item_t decode_text_document_item(json_t * p_json)
         retval.language_id = decode_string(p_language_id_json);
         retval.valid_fields |= TEXT_DOCUMENT_ITEM_FIELD_LANGUAGE_ID;
     }
-    json_decref(p_language_id_json);
-
 
     json_t * p_version_json = json_object_get(p_json, "version");
     if (json_is_integer(p_version_json))
@@ -975,8 +867,6 @@ text_document_item_t decode_text_document_item(json_t * p_json)
         retval.version = decode_number(p_version_json);
         retval.valid_fields |= TEXT_DOCUMENT_ITEM_FIELD_VERSION;
     }
-    json_decref(p_version_json);
-
 
     json_t * p_text_json = json_object_get(p_json, "text");
     if (json_is_string(p_text_json))
@@ -984,7 +874,6 @@ text_document_item_t decode_text_document_item(json_t * p_json)
         retval.text = decode_string(p_text_json);
         retval.valid_fields |= TEXT_DOCUMENT_ITEM_FIELD_TEXT;
     }
-    json_decref(p_text_json);
 
 
     if ((retval.valid_fields & TEXT_DOCUMENT_ITEM_FIELD_REQUIRED) != TEXT_DOCUMENT_ITEM_FIELD_REQUIRED)
@@ -994,6 +883,7 @@ text_document_item_t decode_text_document_item(json_t * p_json)
     }
     return retval;
 }
+
 text_document_content_change_event_t decode_text_document_content_change_event(json_t * p_json)
 {
     text_document_content_change_event_t retval;
@@ -1005,8 +895,6 @@ text_document_content_change_event_t decode_text_document_content_change_event(j
         retval.range = decode_range(p_range_json);
         retval.valid_fields |= TEXT_DOCUMENT_CONTENT_CHANGE_EVENT_FIELD_RANGE;
     }
-    json_decref(p_range_json);
-
 
     json_t * p_range_length_json = json_object_get(p_json, "rangeLength");
     if (json_is_integer(p_range_length_json))
@@ -1014,8 +902,6 @@ text_document_content_change_event_t decode_text_document_content_change_event(j
         retval.range_length = decode_number(p_range_length_json);
         retval.valid_fields |= TEXT_DOCUMENT_CONTENT_CHANGE_EVENT_FIELD_RANGE_LENGTH;
     }
-    json_decref(p_range_length_json);
-
 
     json_t * p_text_json = json_object_get(p_json, "text");
     if (json_is_string(p_text_json))
@@ -1023,7 +909,6 @@ text_document_content_change_event_t decode_text_document_content_change_event(j
         retval.text = decode_string(p_text_json);
         retval.valid_fields |= TEXT_DOCUMENT_CONTENT_CHANGE_EVENT_FIELD_TEXT;
     }
-    json_decref(p_text_json);
 
 
     if ((retval.valid_fields & TEXT_DOCUMENT_CONTENT_CHANGE_EVENT_FIELD_REQUIRED) != TEXT_DOCUMENT_CONTENT_CHANGE_EVENT_FIELD_REQUIRED)
@@ -1033,6 +918,7 @@ text_document_content_change_event_t decode_text_document_content_change_event(j
     }
     return retval;
 }
+
 text_document_identifier_t decode_text_document_identifier(json_t * p_json)
 {
     text_document_identifier_t retval;
@@ -1044,7 +930,6 @@ text_document_identifier_t decode_text_document_identifier(json_t * p_json)
         retval.uri = decode_uri(p_uri_json);
         retval.valid_fields |= TEXT_DOCUMENT_IDENTIFIER_FIELD_URI;
     }
-    json_decref(p_uri_json);
 
 
     if ((retval.valid_fields & TEXT_DOCUMENT_IDENTIFIER_FIELD_REQUIRED) != TEXT_DOCUMENT_IDENTIFIER_FIELD_REQUIRED)
@@ -1054,6 +939,7 @@ text_document_identifier_t decode_text_document_identifier(json_t * p_json)
     }
     return retval;
 }
+
 versioned_text_document_identifier_t decode_versioned_text_document_identifier(json_t * p_json)
 {
     versioned_text_document_identifier_t retval;
@@ -1065,8 +951,6 @@ versioned_text_document_identifier_t decode_versioned_text_document_identifier(j
         retval.uri = decode_uri(p_uri_json);
         retval.valid_fields |= VERSIONED_TEXT_DOCUMENT_IDENTIFIER_FIELD_URI;
     }
-    json_decref(p_uri_json);
-
 
     json_t * p_version_json = json_object_get(p_json, "version");
     if (json_is_integer(p_version_json))
@@ -1074,7 +958,6 @@ versioned_text_document_identifier_t decode_versioned_text_document_identifier(j
         retval.version = decode_number(p_version_json);
         retval.valid_fields |= VERSIONED_TEXT_DOCUMENT_IDENTIFIER_FIELD_VERSION;
     }
-    json_decref(p_version_json);
 
 
     if ((retval.valid_fields & VERSIONED_TEXT_DOCUMENT_IDENTIFIER_FIELD_REQUIRED) != VERSIONED_TEXT_DOCUMENT_IDENTIFIER_FIELD_REQUIRED)
@@ -1084,6 +967,7 @@ versioned_text_document_identifier_t decode_versioned_text_document_identifier(j
     }
     return retval;
 }
+
 file_event_t decode_file_event(json_t * p_json)
 {
     file_event_t retval;
@@ -1095,8 +979,6 @@ file_event_t decode_file_event(json_t * p_json)
         retval.uri = decode_uri(p_uri_json);
         retval.valid_fields |= FILE_EVENT_FIELD_URI;
     }
-    json_decref(p_uri_json);
-
 
     json_t * p_type_json = json_object_get(p_json, "type");
     if (json_is_object(p_type_json))
@@ -1104,7 +986,6 @@ file_event_t decode_file_event(json_t * p_json)
         retval.type = decode_file_change_type(p_type_json);
         retval.valid_fields |= FILE_EVENT_FIELD_TYPE;
     }
-    json_decref(p_type_json);
 
 
     if ((retval.valid_fields & FILE_EVENT_FIELD_REQUIRED) != FILE_EVENT_FIELD_REQUIRED)
@@ -1114,6 +995,7 @@ file_event_t decode_file_event(json_t * p_json)
     }
     return retval;
 }
+
 text_document_position_params_t decode_text_document_position_params(json_t * p_json)
 {
     text_document_position_params_t retval;
@@ -1125,8 +1007,6 @@ text_document_position_params_t decode_text_document_position_params(json_t * p_
         retval.text_document = decode_text_document_identifier(p_text_document_json);
         retval.valid_fields |= TEXT_DOCUMENT_POSITION_PARAMS_FIELD_TEXT_DOCUMENT;
     }
-    json_decref(p_text_document_json);
-
 
     json_t * p_position_json = json_object_get(p_json, "position");
     if (json_is_object(p_position_json))
@@ -1134,7 +1014,6 @@ text_document_position_params_t decode_text_document_position_params(json_t * p_
         retval.position = decode_position(p_position_json);
         retval.valid_fields |= TEXT_DOCUMENT_POSITION_PARAMS_FIELD_POSITION;
     }
-    json_decref(p_position_json);
 
 
     if ((retval.valid_fields & TEXT_DOCUMENT_POSITION_PARAMS_FIELD_REQUIRED) != TEXT_DOCUMENT_POSITION_PARAMS_FIELD_REQUIRED)
@@ -1144,6 +1023,7 @@ text_document_position_params_t decode_text_document_position_params(json_t * p_
     }
     return retval;
 }
+
 command_t decode_command(json_t * p_json)
 {
     command_t retval;
@@ -1155,8 +1035,6 @@ command_t decode_command(json_t * p_json)
         retval.title = decode_string(p_title_json);
         retval.valid_fields |= COMMAND_FIELD_TITLE;
     }
-    json_decref(p_title_json);
-
 
     json_t * p_command_json = json_object_get(p_json, "command");
     if (json_is_string(p_command_json))
@@ -1164,14 +1042,11 @@ command_t decode_command(json_t * p_json)
         retval.command = decode_string(p_command_json);
         retval.valid_fields |= COMMAND_FIELD_COMMAND;
     }
-    json_decref(p_command_json);
-
 
     json_t * p_arguments_json = json_object_get(p_json, "arguments");
-    json_incref(p_arguments_json);
-    retval.arguments = p_arguments_json;
     if (p_arguments_json != NULL)
     {
+        retval.arguments = json_deep_copy(p_arguments_json);
         retval.valid_fields |= COMMAND_FIELD_ARGUMENTS;
     }
 
@@ -1183,6 +1058,7 @@ command_t decode_command(json_t * p_json)
     }
     return retval;
 }
+
 completion_item_t decode_completion_item(json_t * p_json)
 {
     completion_item_t retval;
@@ -1194,8 +1070,6 @@ completion_item_t decode_completion_item(json_t * p_json)
         retval.label = decode_string(p_label_json);
         retval.valid_fields |= COMPLETION_ITEM_FIELD_LABEL;
     }
-    json_decref(p_label_json);
-
 
     json_t * p_kind_json = json_object_get(p_json, "kind");
     if (json_is_object(p_kind_json))
@@ -1203,8 +1077,6 @@ completion_item_t decode_completion_item(json_t * p_json)
         retval.kind = decode_completion_item_kind(p_kind_json);
         retval.valid_fields |= COMPLETION_ITEM_FIELD_KIND;
     }
-    json_decref(p_kind_json);
-
 
     json_t * p_detail_json = json_object_get(p_json, "detail");
     if (json_is_string(p_detail_json))
@@ -1212,8 +1084,6 @@ completion_item_t decode_completion_item(json_t * p_json)
         retval.detail = decode_string(p_detail_json);
         retval.valid_fields |= COMPLETION_ITEM_FIELD_DETAIL;
     }
-    json_decref(p_detail_json);
-
 
     json_t * p_documentation_json = json_object_get(p_json, "documentation");
     if (json_is_object(p_documentation_json))
@@ -1221,8 +1091,6 @@ completion_item_t decode_completion_item(json_t * p_json)
         retval.documentation = decode_markup_content(p_documentation_json);
         retval.valid_fields |= COMPLETION_ITEM_FIELD_DOCUMENTATION;
     }
-    json_decref(p_documentation_json);
-
 
     json_t * p_sort_text_json = json_object_get(p_json, "sortText");
     if (json_is_string(p_sort_text_json))
@@ -1230,8 +1098,6 @@ completion_item_t decode_completion_item(json_t * p_json)
         retval.sort_text = decode_string(p_sort_text_json);
         retval.valid_fields |= COMPLETION_ITEM_FIELD_SORT_TEXT;
     }
-    json_decref(p_sort_text_json);
-
 
     json_t * p_filter_text_json = json_object_get(p_json, "filterText");
     if (json_is_string(p_filter_text_json))
@@ -1239,8 +1105,6 @@ completion_item_t decode_completion_item(json_t * p_json)
         retval.filter_text = decode_string(p_filter_text_json);
         retval.valid_fields |= COMPLETION_ITEM_FIELD_FILTER_TEXT;
     }
-    json_decref(p_filter_text_json);
-
 
     json_t * p_insert_text_json = json_object_get(p_json, "insertText");
     if (json_is_string(p_insert_text_json))
@@ -1248,8 +1112,6 @@ completion_item_t decode_completion_item(json_t * p_json)
         retval.insert_text = decode_string(p_insert_text_json);
         retval.valid_fields |= COMPLETION_ITEM_FIELD_INSERT_TEXT;
     }
-    json_decref(p_insert_text_json);
-
 
     json_t * p_insert_text_format_json = json_object_get(p_json, "insertTextFormat");
     if (json_is_object(p_insert_text_format_json))
@@ -1257,8 +1119,6 @@ completion_item_t decode_completion_item(json_t * p_json)
         retval.insert_text_format = decode_insert_text_format(p_insert_text_format_json);
         retval.valid_fields |= COMPLETION_ITEM_FIELD_INSERT_TEXT_FORMAT;
     }
-    json_decref(p_insert_text_format_json);
-
 
     json_t * p_text_edit_json = json_object_get(p_json, "textEdit");
     if (json_is_object(p_text_edit_json))
@@ -1266,8 +1126,6 @@ completion_item_t decode_completion_item(json_t * p_json)
         retval.text_edit = decode_text_edit(p_text_edit_json);
         retval.valid_fields |= COMPLETION_ITEM_FIELD_TEXT_EDIT;
     }
-    json_decref(p_text_edit_json);
-
 
     json_t * p_additional_text_edits_json = json_object_get(p_json, "additionalTextEdits");
     if (json_is_array(p_additional_text_edits_json))
@@ -1283,8 +1141,6 @@ completion_item_t decode_completion_item(json_t * p_json)
         }
         retval.valid_fields |= COMPLETION_ITEM_FIELD_ADDITIONAL_TEXT_EDITS;
     }
-    json_decref(p_additional_text_edits_json);
-
 
     json_t * p_commit_characters_json = json_object_get(p_json, "commitCharacters");
     if (json_is_array(p_commit_characters_json))
@@ -1300,8 +1156,6 @@ completion_item_t decode_completion_item(json_t * p_json)
         }
         retval.valid_fields |= COMPLETION_ITEM_FIELD_COMMIT_CHARACTERS;
     }
-    json_decref(p_commit_characters_json);
-
 
     json_t * p_command_json = json_object_get(p_json, "command");
     if (json_is_object(p_command_json))
@@ -1309,14 +1163,11 @@ completion_item_t decode_completion_item(json_t * p_json)
         retval.command = decode_command(p_command_json);
         retval.valid_fields |= COMPLETION_ITEM_FIELD_COMMAND;
     }
-    json_decref(p_command_json);
-
 
     json_t * p_data_json = json_object_get(p_json, "data");
-    json_incref(p_data_json);
-    retval.data = p_data_json;
     if (p_data_json != NULL)
     {
+        retval.data = json_deep_copy(p_data_json);
         retval.valid_fields |= COMPLETION_ITEM_FIELD_DATA;
     }
 
@@ -1328,6 +1179,7 @@ completion_item_t decode_completion_item(json_t * p_json)
     }
     return retval;
 }
+
 parameter_information_t decode_parameter_information(json_t * p_json)
 {
     parameter_information_t retval;
@@ -1339,8 +1191,6 @@ parameter_information_t decode_parameter_information(json_t * p_json)
         retval.label = decode_string(p_label_json);
         retval.valid_fields |= PARAMETER_INFORMATION_FIELD_LABEL;
     }
-    json_decref(p_label_json);
-
 
     json_t * p_documentation_json = json_object_get(p_json, "documentation");
     if (json_is_object(p_documentation_json))
@@ -1348,7 +1198,6 @@ parameter_information_t decode_parameter_information(json_t * p_json)
         retval.documentation = decode_markup_content(p_documentation_json);
         retval.valid_fields |= PARAMETER_INFORMATION_FIELD_DOCUMENTATION;
     }
-    json_decref(p_documentation_json);
 
 
     if ((retval.valid_fields & PARAMETER_INFORMATION_FIELD_REQUIRED) != PARAMETER_INFORMATION_FIELD_REQUIRED)
@@ -1358,6 +1207,7 @@ parameter_information_t decode_parameter_information(json_t * p_json)
     }
     return retval;
 }
+
 signature_information_t decode_signature_information(json_t * p_json)
 {
     signature_information_t retval;
@@ -1369,8 +1219,6 @@ signature_information_t decode_signature_information(json_t * p_json)
         retval.label = decode_string(p_label_json);
         retval.valid_fields |= SIGNATURE_INFORMATION_FIELD_LABEL;
     }
-    json_decref(p_label_json);
-
 
     json_t * p_documentation_json = json_object_get(p_json, "documentation");
     if (json_is_object(p_documentation_json))
@@ -1378,8 +1226,6 @@ signature_information_t decode_signature_information(json_t * p_json)
         retval.documentation = decode_markup_content(p_documentation_json);
         retval.valid_fields |= SIGNATURE_INFORMATION_FIELD_DOCUMENTATION;
     }
-    json_decref(p_documentation_json);
-
 
     json_t * p_parameters_json = json_object_get(p_json, "parameters");
     if (json_is_array(p_parameters_json))
@@ -1395,7 +1241,6 @@ signature_information_t decode_signature_information(json_t * p_json)
         }
         retval.valid_fields |= SIGNATURE_INFORMATION_FIELD_PARAMETERS;
     }
-    json_decref(p_parameters_json);
 
 
     if ((retval.valid_fields & SIGNATURE_INFORMATION_FIELD_REQUIRED) != SIGNATURE_INFORMATION_FIELD_REQUIRED)
@@ -1405,6 +1250,7 @@ signature_information_t decode_signature_information(json_t * p_json)
     }
     return retval;
 }
+
 reference_context_t decode_reference_context(json_t * p_json)
 {
     reference_context_t retval;
@@ -1416,7 +1262,6 @@ reference_context_t decode_reference_context(json_t * p_json)
         retval.include_declaration = decode_boolean(p_include_declaration_json);
         retval.valid_fields |= REFERENCE_CONTEXT_FIELD_INCLUDE_DECLARATION;
     }
-    json_decref(p_include_declaration_json);
 
 
     if ((retval.valid_fields & REFERENCE_CONTEXT_FIELD_REQUIRED) != REFERENCE_CONTEXT_FIELD_REQUIRED)
@@ -1426,6 +1271,7 @@ reference_context_t decode_reference_context(json_t * p_json)
     }
     return retval;
 }
+
 completion_list_t decode_completion_list(json_t * p_json)
 {
     completion_list_t retval;
@@ -1437,8 +1283,6 @@ completion_list_t decode_completion_list(json_t * p_json)
         retval.is_incomplete = decode_boolean(p_is_incomplete_json);
         retval.valid_fields |= COMPLETION_LIST_FIELD_IS_INCOMPLETE;
     }
-    json_decref(p_is_incomplete_json);
-
 
     json_t * p_items_json = json_object_get(p_json, "items");
     if (json_is_array(p_items_json))
@@ -1454,7 +1298,6 @@ completion_list_t decode_completion_list(json_t * p_json)
         }
         retval.valid_fields |= COMPLETION_LIST_FIELD_ITEMS;
     }
-    json_decref(p_items_json);
 
 
     if ((retval.valid_fields & COMPLETION_LIST_FIELD_REQUIRED) != COMPLETION_LIST_FIELD_REQUIRED)
@@ -1464,6 +1307,7 @@ completion_list_t decode_completion_list(json_t * p_json)
     }
     return retval;
 }
+
 code_action_context_t decode_code_action_context(json_t * p_json)
 {
     code_action_context_t retval;
@@ -1483,7 +1327,6 @@ code_action_context_t decode_code_action_context(json_t * p_json)
         }
         retval.valid_fields |= CODE_ACTION_CONTEXT_FIELD_DIAGNOSTICS;
     }
-    json_decref(p_diagnostics_json);
 
 
     if ((retval.valid_fields & CODE_ACTION_CONTEXT_FIELD_REQUIRED) != CODE_ACTION_CONTEXT_FIELD_REQUIRED)
@@ -1493,6 +1336,7 @@ code_action_context_t decode_code_action_context(json_t * p_json)
     }
     return retval;
 }
+
 
 
 /* Server command parameter JSON decoders */
@@ -1507,8 +1351,6 @@ initialize_params_t decode_initialize_params(json_t * p_json)
         retval.process_id = decode_number(p_process_id_json);
         retval.valid_fields |= INITIALIZE_PARAMS_FIELD_PROCESS_ID;
     }
-    json_decref(p_process_id_json);
-
 
     json_t * p_root_path_json = json_object_get(p_json, "rootPath");
     if (json_is_string(p_root_path_json))
@@ -1516,8 +1358,6 @@ initialize_params_t decode_initialize_params(json_t * p_json)
         retval.root_path = decode_string(p_root_path_json);
         retval.valid_fields |= INITIALIZE_PARAMS_FIELD_ROOT_PATH;
     }
-    json_decref(p_root_path_json);
-
 
     json_t * p_root_uri_json = json_object_get(p_json, "rootUri");
     if (json_is_string(p_root_uri_json))
@@ -1525,8 +1365,6 @@ initialize_params_t decode_initialize_params(json_t * p_json)
         retval.root_uri = decode_uri(p_root_uri_json);
         retval.valid_fields |= INITIALIZE_PARAMS_FIELD_ROOT_URI;
     }
-    json_decref(p_root_uri_json);
-
 
     json_t * p_capabilities_json = json_object_get(p_json, "capabilities");
     if (json_is_object(p_capabilities_json))
@@ -1534,8 +1372,6 @@ initialize_params_t decode_initialize_params(json_t * p_json)
         retval.capabilities = decode_client_capabilities(p_capabilities_json);
         retval.valid_fields |= INITIALIZE_PARAMS_FIELD_CAPABILITIES;
     }
-    json_decref(p_capabilities_json);
-
 
     json_t * p_initialization_options_json = json_object_get(p_json, "initializationOptions");
     if (json_is_object(p_initialization_options_json))
@@ -1543,8 +1379,6 @@ initialize_params_t decode_initialize_params(json_t * p_json)
         retval.initialization_options = decode_initialization_options(p_initialization_options_json);
         retval.valid_fields |= INITIALIZE_PARAMS_FIELD_INITIALIZATION_OPTIONS;
     }
-    json_decref(p_initialization_options_json);
-
 
     json_t * p_trace_json = json_object_get(p_json, "trace");
     if (json_is_string(p_trace_json))
@@ -1552,7 +1386,6 @@ initialize_params_t decode_initialize_params(json_t * p_json)
         retval.trace = decode_string(p_trace_json);
         retval.valid_fields |= INITIALIZE_PARAMS_FIELD_TRACE;
     }
-    json_decref(p_trace_json);
 
 
     if ((retval.valid_fields & INITIALIZE_PARAMS_FIELD_REQUIRED) != INITIALIZE_PARAMS_FIELD_REQUIRED)
@@ -1562,6 +1395,7 @@ initialize_params_t decode_initialize_params(json_t * p_json)
     }
     return retval;
 }
+
 reference_params_t decode_reference_params(json_t * p_json)
 {
     reference_params_t retval;
@@ -1573,8 +1407,6 @@ reference_params_t decode_reference_params(json_t * p_json)
         retval.context = decode_reference_context(p_context_json);
         retval.valid_fields |= REFERENCE_PARAMS_FIELD_CONTEXT;
     }
-    json_decref(p_context_json);
-
 
     json_t * p_text_document_json = json_object_get(p_json, "textDocument");
     if (json_is_object(p_text_document_json))
@@ -1582,8 +1414,6 @@ reference_params_t decode_reference_params(json_t * p_json)
         retval.text_document = decode_text_document_identifier(p_text_document_json);
         retval.valid_fields |= REFERENCE_PARAMS_FIELD_TEXT_DOCUMENT;
     }
-    json_decref(p_text_document_json);
-
 
     json_t * p_position_json = json_object_get(p_json, "position");
     if (json_is_object(p_position_json))
@@ -1591,7 +1421,6 @@ reference_params_t decode_reference_params(json_t * p_json)
         retval.position = decode_position(p_position_json);
         retval.valid_fields |= REFERENCE_PARAMS_FIELD_POSITION;
     }
-    json_decref(p_position_json);
 
 
     if ((retval.valid_fields & REFERENCE_PARAMS_FIELD_REQUIRED) != REFERENCE_PARAMS_FIELD_REQUIRED)
@@ -1601,6 +1430,7 @@ reference_params_t decode_reference_params(json_t * p_json)
     }
     return retval;
 }
+
 document_symbol_params_t decode_document_symbol_params(json_t * p_json)
 {
     document_symbol_params_t retval;
@@ -1612,7 +1442,6 @@ document_symbol_params_t decode_document_symbol_params(json_t * p_json)
         retval.text_document = decode_text_document_identifier(p_text_document_json);
         retval.valid_fields |= DOCUMENT_SYMBOL_PARAMS_FIELD_TEXT_DOCUMENT;
     }
-    json_decref(p_text_document_json);
 
 
     if ((retval.valid_fields & DOCUMENT_SYMBOL_PARAMS_FIELD_REQUIRED) != DOCUMENT_SYMBOL_PARAMS_FIELD_REQUIRED)
@@ -1622,6 +1451,7 @@ document_symbol_params_t decode_document_symbol_params(json_t * p_json)
     }
     return retval;
 }
+
 workspace_symbol_params_t decode_workspace_symbol_params(json_t * p_json)
 {
     workspace_symbol_params_t retval;
@@ -1633,7 +1463,6 @@ workspace_symbol_params_t decode_workspace_symbol_params(json_t * p_json)
         retval.query = decode_string(p_query_json);
         retval.valid_fields |= WORKSPACE_SYMBOL_PARAMS_FIELD_QUERY;
     }
-    json_decref(p_query_json);
 
 
     if ((retval.valid_fields & WORKSPACE_SYMBOL_PARAMS_FIELD_REQUIRED) != WORKSPACE_SYMBOL_PARAMS_FIELD_REQUIRED)
@@ -1643,6 +1472,7 @@ workspace_symbol_params_t decode_workspace_symbol_params(json_t * p_json)
     }
     return retval;
 }
+
 document_link_params_t decode_document_link_params(json_t * p_json)
 {
     document_link_params_t retval;
@@ -1654,7 +1484,6 @@ document_link_params_t decode_document_link_params(json_t * p_json)
         retval.text_document = decode_text_document_identifier(p_text_document_json);
         retval.valid_fields |= DOCUMENT_LINK_PARAMS_FIELD_TEXT_DOCUMENT;
     }
-    json_decref(p_text_document_json);
 
 
     if ((retval.valid_fields & DOCUMENT_LINK_PARAMS_FIELD_REQUIRED) != DOCUMENT_LINK_PARAMS_FIELD_REQUIRED)
@@ -1664,6 +1493,7 @@ document_link_params_t decode_document_link_params(json_t * p_json)
     }
     return retval;
 }
+
 code_action_params_t decode_code_action_params(json_t * p_json)
 {
     code_action_params_t retval;
@@ -1675,8 +1505,6 @@ code_action_params_t decode_code_action_params(json_t * p_json)
         retval.text_document = decode_text_document_identifier(p_text_document_json);
         retval.valid_fields |= CODE_ACTION_PARAMS_FIELD_TEXT_DOCUMENT;
     }
-    json_decref(p_text_document_json);
-
 
     json_t * p_range_json = json_object_get(p_json, "range");
     if (json_is_object(p_range_json))
@@ -1684,8 +1512,6 @@ code_action_params_t decode_code_action_params(json_t * p_json)
         retval.range = decode_range(p_range_json);
         retval.valid_fields |= CODE_ACTION_PARAMS_FIELD_RANGE;
     }
-    json_decref(p_range_json);
-
 
     json_t * p_context_json = json_object_get(p_json, "context");
     if (json_is_object(p_context_json))
@@ -1693,7 +1519,6 @@ code_action_params_t decode_code_action_params(json_t * p_json)
         retval.context = decode_code_action_context(p_context_json);
         retval.valid_fields |= CODE_ACTION_PARAMS_FIELD_CONTEXT;
     }
-    json_decref(p_context_json);
 
 
     if ((retval.valid_fields & CODE_ACTION_PARAMS_FIELD_REQUIRED) != CODE_ACTION_PARAMS_FIELD_REQUIRED)
@@ -1703,6 +1528,7 @@ code_action_params_t decode_code_action_params(json_t * p_json)
     }
     return retval;
 }
+
 
 
 /* Client command parameter JSON decoders */
@@ -1717,8 +1543,6 @@ show_message_request_params_t decode_show_message_request_params(json_t * p_json
         retval.type = decode_message_type(p_type_json);
         retval.valid_fields |= SHOW_MESSAGE_REQUEST_PARAMS_FIELD_TYPE;
     }
-    json_decref(p_type_json);
-
 
     json_t * p_message_json = json_object_get(p_json, "message");
     if (json_is_string(p_message_json))
@@ -1726,8 +1550,6 @@ show_message_request_params_t decode_show_message_request_params(json_t * p_json
         retval.message = decode_string(p_message_json);
         retval.valid_fields |= SHOW_MESSAGE_REQUEST_PARAMS_FIELD_MESSAGE;
     }
-    json_decref(p_message_json);
-
 
     json_t * p_actions_json = json_object_get(p_json, "actions");
     if (json_is_array(p_actions_json))
@@ -1743,7 +1565,6 @@ show_message_request_params_t decode_show_message_request_params(json_t * p_json
         }
         retval.valid_fields |= SHOW_MESSAGE_REQUEST_PARAMS_FIELD_ACTIONS;
     }
-    json_decref(p_actions_json);
 
 
     if ((retval.valid_fields & SHOW_MESSAGE_REQUEST_PARAMS_FIELD_REQUIRED) != SHOW_MESSAGE_REQUEST_PARAMS_FIELD_REQUIRED)
@@ -1753,6 +1574,7 @@ show_message_request_params_t decode_show_message_request_params(json_t * p_json
     }
     return retval;
 }
+
 signature_help_t decode_signature_help(json_t * p_json)
 {
     signature_help_t retval;
@@ -1772,8 +1594,6 @@ signature_help_t decode_signature_help(json_t * p_json)
         }
         retval.valid_fields |= SIGNATURE_HELP_FIELD_SIGNATURES;
     }
-    json_decref(p_signatures_json);
-
 
     json_t * p_active_signature_json = json_object_get(p_json, "activeSignature");
     if (json_is_integer(p_active_signature_json))
@@ -1781,8 +1601,6 @@ signature_help_t decode_signature_help(json_t * p_json)
         retval.active_signature = decode_number(p_active_signature_json);
         retval.valid_fields |= SIGNATURE_HELP_FIELD_ACTIVE_SIGNATURE;
     }
-    json_decref(p_active_signature_json);
-
 
     json_t * p_active_parameter_json = json_object_get(p_json, "activeParameter");
     if (json_is_integer(p_active_parameter_json))
@@ -1790,7 +1608,6 @@ signature_help_t decode_signature_help(json_t * p_json)
         retval.active_parameter = decode_number(p_active_parameter_json);
         retval.valid_fields |= SIGNATURE_HELP_FIELD_ACTIVE_PARAMETER;
     }
-    json_decref(p_active_parameter_json);
 
 
     if ((retval.valid_fields & SIGNATURE_HELP_FIELD_REQUIRED) != SIGNATURE_HELP_FIELD_REQUIRED)
@@ -1800,6 +1617,7 @@ signature_help_t decode_signature_help(json_t * p_json)
     }
     return retval;
 }
+
 
 
 /* Command response parameter JSON decoders */
@@ -1814,7 +1632,6 @@ initialize_result_t decode_initialize_result(json_t * p_json)
         retval.capabilities = decode_server_capabilities(p_capabilities_json);
         retval.valid_fields |= INITIALIZE_RESULT_FIELD_CAPABILITIES;
     }
-    json_decref(p_capabilities_json);
 
 
     if ((retval.valid_fields & INITIALIZE_RESULT_FIELD_REQUIRED) != INITIALIZE_RESULT_FIELD_REQUIRED)
@@ -1824,6 +1641,7 @@ initialize_result_t decode_initialize_result(json_t * p_json)
     }
     return retval;
 }
+
 symbol_information_t decode_symbol_information(json_t * p_json)
 {
     symbol_information_t retval;
@@ -1835,8 +1653,6 @@ symbol_information_t decode_symbol_information(json_t * p_json)
         retval.name = decode_string(p_name_json);
         retval.valid_fields |= SYMBOL_INFORMATION_FIELD_NAME;
     }
-    json_decref(p_name_json);
-
 
     json_t * p_kind_json = json_object_get(p_json, "kind");
     if (json_is_object(p_kind_json))
@@ -1844,8 +1660,6 @@ symbol_information_t decode_symbol_information(json_t * p_json)
         retval.kind = decode_symbol_kind(p_kind_json);
         retval.valid_fields |= SYMBOL_INFORMATION_FIELD_KIND;
     }
-    json_decref(p_kind_json);
-
 
     json_t * p_location_json = json_object_get(p_json, "location");
     if (json_is_object(p_location_json))
@@ -1853,8 +1667,6 @@ symbol_information_t decode_symbol_information(json_t * p_json)
         retval.location = decode_location(p_location_json);
         retval.valid_fields |= SYMBOL_INFORMATION_FIELD_LOCATION;
     }
-    json_decref(p_location_json);
-
 
     json_t * p_container_name_json = json_object_get(p_json, "containerName");
     if (json_is_string(p_container_name_json))
@@ -1862,7 +1674,6 @@ symbol_information_t decode_symbol_information(json_t * p_json)
         retval.container_name = decode_string(p_container_name_json);
         retval.valid_fields |= SYMBOL_INFORMATION_FIELD_CONTAINER_NAME;
     }
-    json_decref(p_container_name_json);
 
 
     if ((retval.valid_fields & SYMBOL_INFORMATION_FIELD_REQUIRED) != SYMBOL_INFORMATION_FIELD_REQUIRED)
@@ -1872,6 +1683,7 @@ symbol_information_t decode_symbol_information(json_t * p_json)
     }
     return retval;
 }
+
 document_link_t decode_document_link(json_t * p_json)
 {
     document_link_t retval;
@@ -1883,8 +1695,6 @@ document_link_t decode_document_link(json_t * p_json)
         retval.range = decode_range(p_range_json);
         retval.valid_fields |= DOCUMENT_LINK_FIELD_RANGE;
     }
-    json_decref(p_range_json);
-
 
     json_t * p_target_json = json_object_get(p_json, "target");
     if (json_is_string(p_target_json))
@@ -1892,7 +1702,6 @@ document_link_t decode_document_link(json_t * p_json)
         retval.target = decode_uri(p_target_json);
         retval.valid_fields |= DOCUMENT_LINK_FIELD_TARGET;
     }
-    json_decref(p_target_json);
 
 
     if ((retval.valid_fields & DOCUMENT_LINK_FIELD_REQUIRED) != DOCUMENT_LINK_FIELD_REQUIRED)
@@ -1902,6 +1711,7 @@ document_link_t decode_document_link(json_t * p_json)
     }
     return retval;
 }
+
 hover_t decode_hover(json_t * p_json)
 {
     hover_t retval;
@@ -1913,8 +1723,6 @@ hover_t decode_hover(json_t * p_json)
         retval.contents = decode_markup_content(p_contents_json);
         retval.valid_fields |= HOVER_FIELD_CONTENTS;
     }
-    json_decref(p_contents_json);
-
 
     json_t * p_range_json = json_object_get(p_json, "range");
     if (json_is_object(p_range_json))
@@ -1922,7 +1730,6 @@ hover_t decode_hover(json_t * p_json)
         retval.range = decode_range(p_range_json);
         retval.valid_fields |= HOVER_FIELD_RANGE;
     }
-    json_decref(p_range_json);
 
 
     if ((retval.valid_fields & HOVER_FIELD_REQUIRED) != HOVER_FIELD_REQUIRED)
@@ -1932,6 +1739,7 @@ hover_t decode_hover(json_t * p_json)
     }
     return retval;
 }
+
 
 
 /* Client notification parameter JSON decoders */
@@ -1946,8 +1754,6 @@ show_message_params_t decode_show_message_params(json_t * p_json)
         retval.type = decode_message_type(p_type_json);
         retval.valid_fields |= SHOW_MESSAGE_PARAMS_FIELD_TYPE;
     }
-    json_decref(p_type_json);
-
 
     json_t * p_message_json = json_object_get(p_json, "message");
     if (json_is_string(p_message_json))
@@ -1955,7 +1761,6 @@ show_message_params_t decode_show_message_params(json_t * p_json)
         retval.message = decode_string(p_message_json);
         retval.valid_fields |= SHOW_MESSAGE_PARAMS_FIELD_MESSAGE;
     }
-    json_decref(p_message_json);
 
 
     if ((retval.valid_fields & SHOW_MESSAGE_PARAMS_FIELD_REQUIRED) != SHOW_MESSAGE_PARAMS_FIELD_REQUIRED)
@@ -1965,6 +1770,7 @@ show_message_params_t decode_show_message_params(json_t * p_json)
     }
     return retval;
 }
+
 log_message_params_t decode_log_message_params(json_t * p_json)
 {
     log_message_params_t retval;
@@ -1976,8 +1782,6 @@ log_message_params_t decode_log_message_params(json_t * p_json)
         retval.type = decode_message_type(p_type_json);
         retval.valid_fields |= LOG_MESSAGE_PARAMS_FIELD_TYPE;
     }
-    json_decref(p_type_json);
-
 
     json_t * p_message_json = json_object_get(p_json, "message");
     if (json_is_string(p_message_json))
@@ -1985,7 +1789,6 @@ log_message_params_t decode_log_message_params(json_t * p_json)
         retval.message = decode_string(p_message_json);
         retval.valid_fields |= LOG_MESSAGE_PARAMS_FIELD_MESSAGE;
     }
-    json_decref(p_message_json);
 
 
     if ((retval.valid_fields & LOG_MESSAGE_PARAMS_FIELD_REQUIRED) != LOG_MESSAGE_PARAMS_FIELD_REQUIRED)
@@ -1995,6 +1798,7 @@ log_message_params_t decode_log_message_params(json_t * p_json)
     }
     return retval;
 }
+
 publish_diagnostics_params_t decode_publish_diagnostics_params(json_t * p_json)
 {
     publish_diagnostics_params_t retval;
@@ -2006,8 +1810,6 @@ publish_diagnostics_params_t decode_publish_diagnostics_params(json_t * p_json)
         retval.uri = decode_uri(p_uri_json);
         retval.valid_fields |= PUBLISH_DIAGNOSTICS_PARAMS_FIELD_URI;
     }
-    json_decref(p_uri_json);
-
 
     json_t * p_diagnostics_json = json_object_get(p_json, "diagnostics");
     if (json_is_array(p_diagnostics_json))
@@ -2023,7 +1825,6 @@ publish_diagnostics_params_t decode_publish_diagnostics_params(json_t * p_json)
         }
         retval.valid_fields |= PUBLISH_DIAGNOSTICS_PARAMS_FIELD_DIAGNOSTICS;
     }
-    json_decref(p_diagnostics_json);
 
 
     if ((retval.valid_fields & PUBLISH_DIAGNOSTICS_PARAMS_FIELD_REQUIRED) != PUBLISH_DIAGNOSTICS_PARAMS_FIELD_REQUIRED)
@@ -2033,6 +1834,7 @@ publish_diagnostics_params_t decode_publish_diagnostics_params(json_t * p_json)
     }
     return retval;
 }
+
 
 
 /* Server notification parameter JSON decoders */
@@ -2047,7 +1849,6 @@ did_open_text_document_params_t decode_did_open_text_document_params(json_t * p_
         retval.text_document = decode_text_document_item(p_text_document_json);
         retval.valid_fields |= DID_OPEN_TEXT_DOCUMENT_PARAMS_FIELD_TEXT_DOCUMENT;
     }
-    json_decref(p_text_document_json);
 
 
     if ((retval.valid_fields & DID_OPEN_TEXT_DOCUMENT_PARAMS_FIELD_REQUIRED) != DID_OPEN_TEXT_DOCUMENT_PARAMS_FIELD_REQUIRED)
@@ -2057,6 +1858,7 @@ did_open_text_document_params_t decode_did_open_text_document_params(json_t * p_
     }
     return retval;
 }
+
 did_change_text_document_params_t decode_did_change_text_document_params(json_t * p_json)
 {
     did_change_text_document_params_t retval;
@@ -2068,8 +1870,6 @@ did_change_text_document_params_t decode_did_change_text_document_params(json_t 
         retval.text_document = decode_versioned_text_document_identifier(p_text_document_json);
         retval.valid_fields |= DID_CHANGE_TEXT_DOCUMENT_PARAMS_FIELD_TEXT_DOCUMENT;
     }
-    json_decref(p_text_document_json);
-
 
     json_t * p_content_changes_json = json_object_get(p_json, "contentChanges");
     if (json_is_array(p_content_changes_json))
@@ -2085,7 +1885,6 @@ did_change_text_document_params_t decode_did_change_text_document_params(json_t 
         }
         retval.valid_fields |= DID_CHANGE_TEXT_DOCUMENT_PARAMS_FIELD_CONTENT_CHANGES;
     }
-    json_decref(p_content_changes_json);
 
 
     if ((retval.valid_fields & DID_CHANGE_TEXT_DOCUMENT_PARAMS_FIELD_REQUIRED) != DID_CHANGE_TEXT_DOCUMENT_PARAMS_FIELD_REQUIRED)
@@ -2095,6 +1894,7 @@ did_change_text_document_params_t decode_did_change_text_document_params(json_t 
     }
     return retval;
 }
+
 did_save_text_document_params_t decode_did_save_text_document_params(json_t * p_json)
 {
     did_save_text_document_params_t retval;
@@ -2106,8 +1906,6 @@ did_save_text_document_params_t decode_did_save_text_document_params(json_t * p_
         retval.text_document = decode_text_document_identifier(p_text_document_json);
         retval.valid_fields |= DID_SAVE_TEXT_DOCUMENT_PARAMS_FIELD_TEXT_DOCUMENT;
     }
-    json_decref(p_text_document_json);
-
 
     json_t * p_text_json = json_object_get(p_json, "text");
     if (json_is_string(p_text_json))
@@ -2115,7 +1913,6 @@ did_save_text_document_params_t decode_did_save_text_document_params(json_t * p_
         retval.text = decode_string(p_text_json);
         retval.valid_fields |= DID_SAVE_TEXT_DOCUMENT_PARAMS_FIELD_TEXT;
     }
-    json_decref(p_text_json);
 
 
     if ((retval.valid_fields & DID_SAVE_TEXT_DOCUMENT_PARAMS_FIELD_REQUIRED) != DID_SAVE_TEXT_DOCUMENT_PARAMS_FIELD_REQUIRED)
@@ -2125,6 +1922,7 @@ did_save_text_document_params_t decode_did_save_text_document_params(json_t * p_
     }
     return retval;
 }
+
 did_close_text_document_params_t decode_did_close_text_document_params(json_t * p_json)
 {
     did_close_text_document_params_t retval;
@@ -2136,7 +1934,6 @@ did_close_text_document_params_t decode_did_close_text_document_params(json_t * 
         retval.text_document = decode_text_document_identifier(p_text_document_json);
         retval.valid_fields |= DID_CLOSE_TEXT_DOCUMENT_PARAMS_FIELD_TEXT_DOCUMENT;
     }
-    json_decref(p_text_document_json);
 
 
     if ((retval.valid_fields & DID_CLOSE_TEXT_DOCUMENT_PARAMS_FIELD_REQUIRED) != DID_CLOSE_TEXT_DOCUMENT_PARAMS_FIELD_REQUIRED)
@@ -2146,6 +1943,7 @@ did_close_text_document_params_t decode_did_close_text_document_params(json_t * 
     }
     return retval;
 }
+
 did_change_watched_files_params_t decode_did_change_watched_files_params(json_t * p_json)
 {
     did_change_watched_files_params_t retval;
@@ -2165,7 +1963,6 @@ did_change_watched_files_params_t decode_did_change_watched_files_params(json_t 
         }
         retval.valid_fields |= DID_CHANGE_WATCHED_FILES_PARAMS_FIELD_CHANGES;
     }
-    json_decref(p_changes_json);
 
 
     if ((retval.valid_fields & DID_CHANGE_WATCHED_FILES_PARAMS_FIELD_REQUIRED) != DID_CHANGE_WATCHED_FILES_PARAMS_FIELD_REQUIRED)
@@ -2175,6 +1972,7 @@ did_change_watched_files_params_t decode_did_change_watched_files_params(json_t 
     }
     return retval;
 }
+
 
 /*******************************************************************************
  * Freers
@@ -2221,7 +2019,7 @@ void free_client_capabilities(client_capabilities_t value)
 {
     free_workspace_client_capabilities(value.workspace);
     free_text_document_client_capabilities(value.text_document);
-    json_decref(value.experimenal);
+    json_decref(value.experimental);
 }
 
 void free_completion_options(completion_options_t value)
@@ -2557,6 +2355,7 @@ void free_did_change_watched_files_params(did_change_watched_files_params_t valu
     }
     free(value.p_changes);
 }
+
 decoder_error_t decoder_error(void)
 {
     decoder_error_t e = m_error;

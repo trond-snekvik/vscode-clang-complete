@@ -279,14 +279,12 @@ function generate_member_decoders(members: any, structure_name: string, indent='
             setter += indent + `}\n`;
         }
         else if (members[key] === 'any') {
-            setter += indent + `json_incref(p_${key}_json);\n`
-            setter += indent + `${retval}.${key} = p_${key}_json;\n`
-            if (retval === 'retval') {
-                setter += indent + `if (p_${key}_json != NULL)\n`;
-                setter += indent + `{\n`;
+            setter += indent + `if (p_${key}_json != NULL)\n`;
+            setter += indent + `{\n`;
+            setter += indent + `    ${retval}.${key} = json_deep_copy(p_${key}_json);\n`
+            if (retval === 'retval')
                 setter += field_setter;
-                setter += indent + `}\n`;
-            }
+            setter += indent + `}\n`;
         }
         else {
             setter += indent + `if (json_is_${get_json_type(members[key])}(p_${key}_json))\n`;
@@ -308,12 +306,11 @@ function generate_member_decoders(members: any, structure_name: string, indent='
             if (retval === 'retval')
                 setter += field_setter;
             setter += indent + `}\n`
-            setter += indent + `json_decref(p_${key}_json);\n`
         }
         setter += '\n';
 
         return setter;
-    }).join('\n');
+    }).join('');
 }
 
 function generate_decoder_declarations(): string {
@@ -344,6 +341,7 @@ function generate_decoder_definitions(): string {
             }
             retval.push(`    return retval;`)
             retval.push(`}`)
+            retval.push(``)
             return retval.map(line => line + '\n').join('');
         }).join('');
     }).join('\n\n');
@@ -585,6 +583,7 @@ fs.writeFile('backend/src/protocol/decoders.c',
     generate_decoder_definitions() +
     code_separator('Freers') +
     generate_freer_definitions() +
+    '\n' +
     generate_decoder_source_extras());
 
 fs.writeFile('backend/include/protocol/message_handling.h',

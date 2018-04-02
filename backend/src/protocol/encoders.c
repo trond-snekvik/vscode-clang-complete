@@ -203,9 +203,9 @@ json_t * encode_client_capabilities(client_capabilities_t value)
         json_object_set_new(p_json, "textDocument", encode_text_document_client_capabilities(value.text_document));
     }
 
-    if (value.valid_fields & CLIENT_CAPABILITIES_FIELD_EXPERIMENAL)
+    if (value.valid_fields & CLIENT_CAPABILITIES_FIELD_EXPERIMENTAL)
     {
-        json_object_set_new(p_json, "experimenal", value.experimenal);
+        json_object_set_new(p_json, "experimental", value.experimental);
     }
     return p_json;
 }

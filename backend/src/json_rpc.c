@@ -109,11 +109,10 @@ static void handle_incoming(json_t * p_root)
                 {
                     // request or notification
                     bool handled = false;
-                    json_t * p_response = NULL;
                     if (p_id)
                     {
                         LOG("GOT REQUEST \"%s\"\n", json_string_value(p_method));
-                        p_response = json_object();
+                        json_t * p_response = json_object();
                         json_object_set_new(p_response, "jsonrpc", json_string("2.0"));
                         json_object_set(p_response, "id", p_id);
 
@@ -132,6 +131,7 @@ static void handle_incoming(json_t * p_root)
                         {
                             json_rpc_error_response_send(p_response, JSON_RPC_ERROR_METHOD_NOT_FOUND, "No handler registered for method", NULL);
                         }
+                        json_decref(p_response);
                     }
                     else
                     {
@@ -148,7 +148,6 @@ static void handle_incoming(json_t * p_root)
                             LOG("No handler.\n");
                         }
                     }
-                    json_decref(p_response);
                 }
                 else if (p_id && json_is_integer(p_id))
                 {
@@ -196,9 +195,6 @@ static void handle_incoming(json_t * p_root)
                                         }
                                         m_response_waiters.p_head->handler(id, JSON_RPC_RESULT_ERROR, &params);
                                     }
-                                    json_decref(p_code);
-                                    json_decref(p_message);
-                                    json_decref(p_data);
                                 }
                             }
                             else
@@ -218,15 +214,7 @@ static void handle_incoming(json_t * p_root)
                     }
                 }
             }
-
-            json_decref(p_jsonrpc);
-            json_decref(p_method);
-            json_decref(p_params);
-            json_decref(p_id);
-            json_decref(p_result);
-            json_decref(p_error);
         }
-        json_decref(p_root);
     }
     else
     {

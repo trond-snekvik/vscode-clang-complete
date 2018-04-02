@@ -94,7 +94,7 @@
             "members": {
                 "workspace": "workspace_client_capabilities",
                 "text_document": "text_document_client_capabilities",
-                "experimenal": "any"
+                "experimental": "any"
             },
             "required": []
         },
