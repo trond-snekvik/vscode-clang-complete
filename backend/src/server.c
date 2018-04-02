@@ -33,10 +33,16 @@ int main(unsigned argc, const char ** pp_argv)
     LOG("-------------------------------------------------------\n");
     json_rpc_init();
 
-    //LOG("Start listening...\n");
     command_handler_init();
+    FILE * p_stream = stdin;
+    if (argc == 2)
+    {
+        p_stream = fopen(pp_argv[1], "r");
+        ASSERT(p_stream);
+        LOG("Running from file %s\n", pp_argv[1]);
+    }
+    json_rpc_listen(p_stream);
 
-    json_rpc_listen(stdin);
     LOG("Stopped listening.\n");
     LOG("Closing.\n");
 }
