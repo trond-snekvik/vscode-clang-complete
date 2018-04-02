@@ -34,8 +34,13 @@
     } while (0)
 #else
 #define LOG(fmt, ...)
-#define OUTPUT(_str) printf("%s", _str)
 
+#define OUTPUT(_str)                  \
+    do                                \
+    {                                 \
+        printf("%s", _str);           \
+        fflush(stdout);               \
+    } while (0)
 #endif
 
 void json_rpc_log(const char * p_message);
