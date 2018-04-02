@@ -6,8 +6,8 @@ set(RUNTIME_OUTPUT_DIRECTORY ../lib)
 
 if (WIN32)
     set(platform "win32")
-    find_program(CLANG_EXE clang)
     if (NOT CLANG_DIR)
+        find_program(CLANG_EXE clang)
         if (NOT CLANG_EXE STREQUAL CLANG_EXE-NOTFOUND)
             get_filename_component(CLANG_EXE_DIRECTORY CLANG_EXE DIRECTORY)
             file(TO_NATIVE_PATH "${CLANG_EXE_DIRECTORY}/.." CLANG_DIR)
@@ -15,10 +15,10 @@ if (WIN32)
             message(FATAL_ERROR "Couldn't locate libclang.")
         endif()
     endif()
-    find_file(CLANG_RUNTIME libclang.dll
-              PATHS "${CLANG_DIR}/bin")
+    set(CLANG_RUNTIME "${CLANG_DIR}/bin/libclang.dll")
     find_library(LIBCLANG libclang
-                 PATHS "${CLANG_DIR}/lib")
+                 PATHS "${CLANG_DIR}/lib"
+                 NO_DEFAULT_PATHS)
     set(node "node")
 endif()
 
@@ -26,10 +26,10 @@ set (CMAKE_C_STANDARD 99)
 
 find_library(LIBJANSSON jansson
              PATHS ${JANSSON_DIR}/lib
-             PATH_SUFFIXES Release Debug)
+             PATH_SUFFIXES Release Debug RelWithDebInfo)
 find_file(JANSSON_RUNTIME jansson.dll
              PATHS ${JANSSON_DIR}/bin
-             PATH_SUFFIXES Release Debug)
+             PATH_SUFFIXES Release Debug RelWithDebInfo)
 
 include_directories(
     "${CLANG_DIR}/include"
@@ -94,7 +94,7 @@ add_custom_command(OUTPUT ${GENERATED_SOURCE_FILES}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
     )
 
-add_custom_command(deploy_make_dir
+add_custom_target(deploy_make_dir
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_SOURCE_DIR}/bin)
 
 add_custom_target(deploy
