@@ -481,15 +481,12 @@ bool unit_code_completion(unit_t *p_unit,
             }
 
             CXString doc = clang_getCompletionBriefComment(completion);
-            CXString typed_text;
-            bool has_typed_text = false;
-            CXString inserted_text;
-            bool has_inserted_text = false;
-            CXString var_type_text;
-            bool has_var_type_text = false;
+            char * p_typed_text = NULL;
+            char * p_inserted_text = NULL;
+            char * p_var_type_text = NULL;
 
-            char * p_full_text = MALLOC(COMPLETION_STRING_MAXLEN);
-            char * p_full_text_next = p_full_text;
+            char full_text[COMPLETION_STRING_MAXLEN];
+            char * p_full_text_next = &full_text[0];
             unsigned placeholders = 0;
             unsigned chunk_count = clang_getNumCompletionChunks(completion);
 
@@ -503,7 +500,7 @@ bool unit_code_completion(unit_t *p_unit,
 
                 if (false && kind == CXCompletionChunk_Placeholder)
                 {
-                    if (p_full_text_next + text_len + 8 < p_full_text + COMPLETION_STRING_MAXLEN)
+                    if (p_full_text_next + text_len + 8 < &full_text[COMPLETION_STRING_MAXLEN])
                     {
                         p_full_text_next += sprintf(p_full_text_next, "${%u:", ++placeholders);
                         strcpy(p_full_text_next, p_text);
@@ -513,7 +510,7 @@ bool unit_code_completion(unit_t *p_unit,
                 }
                 else if (kind != CXCompletionChunk_ResultType && kind != CXCompletionChunk_Optional) //TODO: Emit separate results per optional chunk
                 {
-                    if (p_full_text_next + text_len < p_full_text + COMPLETION_STRING_MAXLEN)
+                    if (p_full_text_next + text_len < &full_text[COMPLETION_STRING_MAXLEN])
                     {
                         strcpy(p_full_text_next, p_text);
                         p_full_text_next += text_len;
@@ -523,53 +520,52 @@ bool unit_code_completion(unit_t *p_unit,
                 switch (kind)
                 {
                     case CXCompletionChunk_TypedText:
-                        typed_text = chunk_string;
-                        has_typed_text = true;
+                        ASSERT(!p_typed_text);
+                        p_typed_text = STRDUP(clang_getCString(chunk_string));
                         break;
 
                     case CXCompletionChunk_Text:
-                        inserted_text = chunk_string;
-                        has_inserted_text = true;
+                        ASSERT(!p_inserted_text);
+                        p_inserted_text = STRDUP(clang_getCString(chunk_string));
                         break;
 
                     case CXCompletionChunk_ResultType:
-                        var_type_text = chunk_string;
-                        has_var_type_text = true;
-                        break;
-
-                    default:
-                        clang_disposeString(chunk_string);
+                        ASSERT(!p_var_type_text);
+                        p_var_type_text = STRDUP(clang_getCString(chunk_string));
                         break;
                 }
+                clang_disposeString(chunk_string);
             }
-
 
             completion_item_t result;
             result.valid_fields = (COMPLETION_ITEM_FIELD_KIND |
                                    COMPLETION_ITEM_FIELD_LABEL |
                                    COMPLETION_ITEM_FIELD_SORT_TEXT |
                                    COMPLETION_ITEM_FIELD_INSERT_TEXT_FORMAT);
+
             result.kind = get_kind(p_results->Results[i].CursorKind);
-            if (has_typed_text)
+
+            if (p_typed_text && strcmp(p_typed_text, full_text) != 0)
             {
-                result.insert_text = (char *) clang_getCString(typed_text);
-                result.valid_fields |= COMPLETION_ITEM_FIELD_INSERT_TEXT;
-                result.filter_text = (char *) clang_getCString(typed_text);
-                result.valid_fields |= COMPLETION_ITEM_FIELD_FILTER_TEXT;
+                result.insert_text = p_typed_text;
+                result.filter_text = p_typed_text;
+                result.valid_fields |= (COMPLETION_ITEM_FIELD_INSERT_TEXT | COMPLETION_ITEM_FIELD_FILTER_TEXT);
             }
             else
             {
                 result.insert_text = "";
             }
 
-            if (has_var_type_text)
+            if (p_var_type_text)
             {
-                result.detail = (char *) clang_getCString(var_type_text);
+                result.detail = p_var_type_text;
                 result.valid_fields |= COMPLETION_ITEM_FIELD_DETAIL;
             }
 
-            result.label = p_full_text;
+            result.label = full_text;
+
             const char * p_doc = clang_getCString(doc);
+#if 0 // markdown in completion
             char * p_markdown_doc = doxygen_to_markdown(p_doc, false);
             if (p_markdown_doc)
             {
@@ -578,23 +574,27 @@ bool unit_code_completion(unit_t *p_unit,
                 result.documentation.valid_fields = MARKUP_CONTENT_FIELD_ALL;
                 result.valid_fields |= COMPLETION_ITEM_FIELD_DOCUMENTATION;
             }
+#else
+            if (p_doc)
+            {
+                result.documentation.kind = MARKUP_KIND_MARKUP;
+                result.documentation.value = (char *) p_doc;
+                result.documentation.valid_fields = MARKUP_CONTENT_FIELD_ALL;
+                result.valid_fields |= COMPLETION_ITEM_FIELD_DOCUMENTATION;
+            }
+#endif
 
             /* Make a string of priority + name to get prioritized sorting, e.g. "000071 param" */
             char * p_sort_text_buf = CALLOC(strlen(result.insert_text) + 8, 1);
             sprintf(p_sort_text_buf, "%06u %s", priority, result.insert_text);
             result.sort_text = p_sort_text_buf;
 
-            if (has_inserted_text)
-            {
-                // result.insert_text = STRDUP(clang_getCString(inserted_text));
-                // result.valid_fields |= COMPLETION_ITEM_FIELD_INSERT_TEXT;
-            }
             if (placeholders > 0)
             {
                 result.insert_text_format = INSERT_TEXT_FORMAT_SNIPPET;
-                if (!has_inserted_text)
+                if (!p_inserted_text)
                 {
-                    result.insert_text = p_full_text;
+                    result.insert_text = full_text;
                     result.valid_fields |= COMPLETION_ITEM_FIELD_INSERT_TEXT;
                 }
             }
@@ -603,7 +603,7 @@ bool unit_code_completion(unit_t *p_unit,
                 result.insert_text_format = INSERT_TEXT_FORMAT_PLAIN_TEXT;
             }
 
-            // LOG("GOT KIND %u: %s\n", result.kind, p_full_text);
+#if 0 // this is really annoying if the match isn't perfect
             char * p_commit_chars_function[] = {"("};
 
             if (result.kind == COMPLETION_ITEM_KIND_FUNCTION)
@@ -613,27 +613,16 @@ bool unit_code_completion(unit_t *p_unit,
                 result.p_commit_characters = p_commit_chars_function;
                 result.valid_fields |= COMPLETION_ITEM_FIELD_COMMIT_CHARACTERS;
             }
+#endif
 
             callback(&result, result_count, p_args);
 
-            FREE(p_full_text);
-            FREE(p_markdown_doc);
+            // FREE(p_markdown_doc);
             clang_disposeString(doc);
-            clang_disposeString(typed_text);
             FREE(p_sort_text_buf);
-
-            if (has_typed_text)
-            {
-                clang_disposeString(typed_text);
-            }
-            if (has_inserted_text)
-            {
-                clang_disposeString(inserted_text);
-            }
-            if (has_var_type_text)
-            {
-                clang_disposeString(var_type_text);
-            }
+            FREE(p_typed_text);
+            FREE(p_inserted_text);
+            FREE(p_var_type_text);
         }
 
         clang_disposeCodeCompleteResults(p_results);
@@ -975,7 +964,6 @@ unsigned unit_diagnostics_get(unit_t *p_unit,
         }
 
         unsigned num_fixits = clang_getDiagnosticNumFixIts(clang_diag);
-        LOG("Diag fixits: %u\n", num_fixits);
 
         for (unsigned j = 0; j < num_fixits; ++j)
         {
