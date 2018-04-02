@@ -20,13 +20,14 @@ typedef struct
 } unit_storage_t;
 
 
-
+static compile_flags_t m_base_flags;
 static unit_storage_t m_storage;
 
-void unit_storage_init(void)
+void unit_storage_init(const compile_flags_t * p_base_flags)
 {
     ASSERT(hashtable_new(&m_storage.p_table) == CC_OK);
     ASSERT(hashtable_new(&m_storage.p_directories) == CC_OK);
+    compile_flags_clone(&m_base_flags, p_base_flags);
 }
 
 bool unit_storage_compilation_database_load(const char * p_directory)
@@ -50,24 +51,23 @@ bool unit_storage_compilation_database_load(const char * p_directory)
             if (unit_storage_get(p_filename) == NULL)
             {
                 compile_flags_t flags;
-                flags.count = 0;
-                flags.pp_array = NULL;
-                unsigned max_count = clang_CompileCommand_getNumArgs(command);;
+                compile_flags_clone(&flags, &m_base_flags);
+                unsigned command_flags_maxcount = clang_CompileCommand_getNumArgs(command);
 
-                if (max_count > 0)
+                if (command_flags_maxcount > 0)
                 {
-                    flags.pp_array = MALLOC(sizeof(const char *) * max_count);
+                    flags.pp_array = REALLOC(flags.pp_array, sizeof(const char *) * (command_flags_maxcount + m_base_flags.count));
 
                     bool skip_arg = false;
-                    for (size_t j = 0; j < max_count; ++j)
+                    for (size_t j = 0; j < command_flags_maxcount; ++j)
                     {
                         CXString arg = clang_CompileCommand_getArg(command, j);
                         char * p_arg = STRDUP(clang_getCString(arg));
+                        clang_disposeString(arg);
 
                         if ((p_arg[0] == '-' || j == 0) && !skip_arg)
                         {
                             skip_arg = false;
-                            clang_disposeString(arg);
                             if (strcmp(p_arg, "-o") == 0)
                             {
                                 skip_arg = true;
@@ -88,7 +88,6 @@ bool unit_storage_compilation_database_load(const char * p_directory)
                                 flags.count++;
                             }
                         }
-
                         FREE(p_arg);
                     }
                 }
@@ -124,6 +123,7 @@ bool unit_storage_compilation_database_load(const char * p_directory)
 
             FREE(p_filename);
             clang_disposeString(filename);
+            clang_disposeString(directory);
         }
     }
     else

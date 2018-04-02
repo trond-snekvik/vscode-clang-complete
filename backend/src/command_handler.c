@@ -18,6 +18,8 @@
 
 #define REPARSE_RETRIES_MAX 5
 
+static const char * m_base_flags[] = {"-ferror-limit=0"};
+
 static char * m_signature_trigger_characters[] = {"(", ","};
 static char * m_completion_trigger_characters[] = {".", ">", ":"};
 static compile_flags_t m_flags;
@@ -406,7 +408,11 @@ void command_handler_init(void)
     config.completion_results_max = 500;
     config.diagnostics_max = 1000;
     unit_init(&config);
-    unit_storage_init();
+    const compile_flags_t base_flags = {
+        .pp_array = (char **) m_base_flags,
+        .count = ARRAY_SIZE(m_base_flags)
+    };
+    unit_storage_init(&base_flags);
     unsaved_files_init();
 
     lsp_request_handler_initialize_register(handle_request_initialize);

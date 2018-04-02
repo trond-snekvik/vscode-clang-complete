@@ -5,7 +5,7 @@
 
 
 
-void unit_storage_init(void);
+void unit_storage_init(const compile_flags_t * p_base_flags);
 bool unit_storage_compilation_database_load(const char * p_directory);
 
 void unit_storage_add(unit_t * p_unit);
