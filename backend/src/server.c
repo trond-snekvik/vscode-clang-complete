@@ -20,11 +20,13 @@ void signal_handler(int signal)
 
 int main(unsigned argc, const char ** pp_argv)
 {
-    signal(SIGSEGV, signal_handler);
-    signal(SIGABRT, signal_handler);
-    signal(SIGILL, signal_handler);
     signal(SIGINT, signal_handler);
-    // LOG_ERASE();
+    signal(SIGILL, signal_handler);
+    signal(SIGFPE, signal_handler);
+    signal(SIGSEGV, signal_handler);
+    signal(SIGTERM, signal_handler);
+    signal(SIGBREAK, signal_handler);
+    signal(SIGABRT, signal_handler);
     OUT_ERASE();
     LOG("-------------------------------------------------------\n");
     LOG("Log started\n");
