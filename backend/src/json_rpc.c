@@ -341,7 +341,7 @@ void json_rpc_listen(FILE * stream)
     while (m_running)
     {
         size_t length;
-        if (fscanf(stream, CONTENT_LENGTH_HEADER, &length))
+        if (fscanf(stream, CONTENT_LENGTH_HEADER, &length) == 1)
         {
             if (buffer_size < length)
             {
@@ -371,7 +371,11 @@ void json_rpc_listen(FILE * stream)
                 LOG("Parsing failed: L%u:%u: %s\n", err.line, err.column, err.text);
             }
         }
-
+        else
+        {
+            LOG("Failed header match, ending.\n");
+            m_running = false;
+        }
     }
     LOG("Exiting\n");
     FREE(p_buffer);
