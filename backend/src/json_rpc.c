@@ -336,7 +336,7 @@ void json_rpc_listen(FILE * stream)
     ASSERT(stream);
     LOG("Listening for incoming rpc\n");
     m_running = true;
-    size_t buffer_size = 128;
+    size_t buffer_size = 1024;
     char * p_buffer = MALLOC(buffer_size);
     while (m_running)
     {
