@@ -9,7 +9,9 @@
 
 #ifdef _WIN32
     #include <direct.h>
-    #define getcwd _getcwd
+    #ifndef getcwd
+        #define getcwd _getcwd
+    #endif
 #else
     #include <unistd.h>
 #endif
