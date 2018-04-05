@@ -8,12 +8,14 @@
 #include <sys/stat.h>
 
 #ifdef _WIN32
+    #include <Windows.h>
     #include <direct.h>
     #ifndef getcwd
         #define getcwd _getcwd
     #endif
 #else
     #include <unistd.h>
+    #include <dirent.h>
 #endif
 
 static inline bool is_path_slash(char c)
@@ -205,3 +207,51 @@ bool path_equals(const char * p_path1, const char * p_path2)
     free(p_abs_path2);
     return (diff == 0);
 }
+
+void path_get_files(const char * p_directory, path_file_cb_t callback, bool recursive, void * p_args)
+{
+#ifdef _WIN32
+    LOG("Path get files for %s\n", p_directory);
+    char match_string[MAX_PATH];
+    sprintf(match_string, "%s/*", p_directory);
+    WIN32_FIND_DATA file_data;
+    HANDLE handle = FindFirstFile(match_string, &file_data);
+    if (handle != INVALID_HANDLE_VALUE)
+    {
+        do
+        {
+            if (strcmp(file_data.cFileName, ".") != 0 && strcmp(file_data.cFileName, "..") != 0)
+            {
+                path_kind_t kind = (file_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? PATH_KIND_DIRECTORY : PATH_KIND_FILE;
+
+                char full_path[MAX_PATH];
+                sprintf(full_path, "%s/%s", p_directory, file_data.cFileName);
+
+                if (kind == PATH_KIND_DIRECTORY && recursive)
+                {
+                    path_get_files(full_path, callback, true, p_args);
+                }
+                callback(full_path, kind, p_args);
+            }
+        } while (FindNextFile(handle, &file_data));
+        FindClose(handle);
+    }
+    else
+    {
+        LOG("FAILED LOOKING UP %s\n", p_directory);
+    }
+#else
+    DIR * p_dir = opendir(p_directory);
+    if (p_dir)
+    {
+        for (struct dirent * p_ent = readdir(p_dir);
+             p_ent != NULL;
+             p_ent = readdir(p_dir))
+        {
+            callback(p_ent->d_name, PATH_KIND_UNKNOWN, p_args);
+        }
+        closedir (dir);
+    }
+#endif
+}
+
