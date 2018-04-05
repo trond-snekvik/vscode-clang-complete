@@ -444,6 +444,109 @@ bool unit_reparse(unit_t * p_unit,
     return (status == CXError_Success);
 }
 
+static bool is_include_statement(unit_t * p_unit,
+                                  const text_document_position_params_t *p_position,
+                                  range_t * p_replace_range)
+{
+    CXFile file = clang_getFile(p_unit->tu, p_position->text_document.uri.path);
+    CXSourceLocation location_cursor = clang_getLocation(p_unit->tu,
+                                                         file,
+                                                         (unsigned) p_position->position.line + 1,
+                                                         (unsigned) p_position->position.character + 1);
+    CXSourceLocation location_start = clang_getLocation(p_unit->tu,
+                                                        file,
+                                                        (unsigned) p_position->position.line + 1, 1);
+    CXSourceRange range = clang_getRange(location_start, location_cursor);
+
+    CXToken *p_tokens = NULL;
+    unsigned token_count = 0;
+
+    clang_tokenize(p_unit->tu, range, &p_tokens, &token_count);
+
+    bool is_match = false;
+
+    if (token_count >= 3) /* Expecting at least #, include, " or similar */
+    {
+        CXCursor * p_cursors = MALLOC(sizeof(CXCursor) * token_count);
+        ASSERT(p_cursors);
+        clang_annotateTokens(p_unit->tu, p_tokens, token_count, p_cursors);
+
+        enum CXCursorKind cursor_kind = clang_getCursorKind(p_cursors[0]);
+
+        if (cursor_kind == CXCursor_InclusionDirective)
+        {
+            is_match = true;
+        }
+        else if (cursor_kind == CXCursor_PreprocessingDirective)
+        {
+            CXString string_hash = clang_getTokenSpelling(p_unit->tu, p_tokens[0]);
+            CXString string_include = clang_getTokenSpelling(p_unit->tu, p_tokens[1]);
+            CXString string_filename = clang_getTokenSpelling(p_unit->tu, p_tokens[2]);
+
+            is_match = (strcmp(clang_getCString(string_hash), "#") == 0 &&
+                        (strcmp(clang_getCString(string_include), "include") == 0 ||
+                         strcmp(clang_getCString(string_include), "include_next") == 0) &&
+                        (clang_getCString(string_filename)[0] == '"' ||
+                         clang_getCString(string_filename)[0] == '<'));
+
+            clang_disposeString(string_hash);
+            clang_disposeString(string_include);
+            clang_disposeString(string_filename);
+        }
+
+        if (is_match)
+        {
+            CXSourceRange start_range = clang_getTokenExtent(p_unit->tu, p_tokens[2]);
+            CXSourceRange end_range = clang_getTokenExtent(p_unit->tu, p_tokens[token_count - 1]);
+            CXSourceLocation start_location = clang_getRangeStart(start_range);
+            CXSourceLocation end_location = clang_getRangeEnd(end_range);
+
+            unsigned start_line, start_character;
+            unsigned end_line, end_character;
+            clang_getSpellingLocation(start_location, NULL, &start_line, &start_character, NULL);
+            clang_getSpellingLocation(end_location, NULL, &end_line, &end_character, NULL);
+            /* If the second and the last token are different, we're off by one ' */
+            if (&p_tokens[2] != p_tokens[token_count - 1])
+            {
+                end_character += 1;
+            }
+            /* Add one character at start, remove one at end to get it within the quotes */
+            p_replace_range->start.line = start_line - 1;
+            p_replace_range->start.character = start_character;
+            p_replace_range->start.valid_fields = POSITION_FIELD_ALL;
+
+            p_replace_range->end.line = end_line - 1;
+            p_replace_range->end.character = end_character - 2;
+            p_replace_range->end.valid_fields = POSITION_FIELD_ALL;
+            p_replace_range->valid_fields = RANGE_FIELD_ALL;
+        }
+
+        FREE(p_cursors);
+        clang_disposeTokens(p_unit->tu, p_tokens, token_count);
+    }
+    return is_match;
+}
+
+typedef struct
+{
+    size_t base_path_len;
+    completion_item_t completion_item;
+    unit_completion_result_callback_t callback;
+    void * p_args;
+} include_file_completion_callback_context_t;
+
+static void include_file_completion_callback(const char * p_filename, path_kind_t kind, void * p_args)
+{
+    if (kind == PATH_KIND_FILE)
+    {
+        include_file_completion_callback_context_t * p_context = p_args;
+        ASSERT(strlen(p_filename) >= p_context->base_path_len);
+        p_context->completion_item.text_edit.new_text = (char *) &p_filename[p_context->base_path_len + 1];
+        p_context->completion_item.label = (char *) &p_filename[p_context->base_path_len + 1];
+        p_context->callback(&p_context->completion_item, 0, p_context->p_args);
+    }
+}
+
 bool unit_code_completion(unit_t *p_unit,
                           const text_document_position_params_t *p_position,
                           struct CXUnsavedFile *p_unsaved_files,
@@ -456,6 +559,33 @@ bool unit_code_completion(unit_t *p_unit,
     ASSERT(p_position);
     ASSERT(callback);
     ASSERT(p_unit->active);
+
+    range_t include_range;
+
+    if (is_include_statement(p_unit, p_position, &include_range))
+    {
+        include_file_completion_callback_context_t context;
+        context.callback = callback;
+        context.p_args = p_args;
+
+        context.completion_item.valid_fields = (COMPLETION_ITEM_FIELD_LABEL | COMPLETION_ITEM_FIELD_TEXT_EDIT | COMPLETION_ITEM_FIELD_KIND);
+        context.completion_item.text_edit.range = include_range;
+        context.completion_item.text_edit.valid_fields = TEXT_EDIT_FIELD_ALL;
+        context.completion_item.kind = COMPLETION_ITEM_KIND_FILE;
+
+        for (unsigned i = 0; i < p_unit->flags.count; ++i)
+        {
+            if (strstr(p_unit->flags.pp_array[i], "-I") == p_unit->flags.pp_array[i] ||
+                strstr(p_unit->flags.pp_array[i], "-i") == p_unit->flags.pp_array[i])
+            {
+                const char * p_directory = &(p_unit->flags.pp_array[i])[2];
+                context.base_path_len = strlen(p_directory);
+                path_get_files(p_directory, include_file_completion_callback, true, &context);
+            }
+        }
+
+        return true;
+    }
 
     CXCodeCompleteResults * p_results = clang_codeCompleteAt(p_unit->tu,
                                                              p_position->text_document.uri.path,
@@ -525,7 +655,11 @@ bool unit_code_completion(unit_t *p_unit,
                         break;
 
                     case CXCompletionChunk_Text:
-                        ASSERT(!p_inserted_text);
+                        if (p_inserted_text)
+                        {
+                            LOG("Got second inserted text (old: %s, new: %s)\n", p_inserted_text, clang_getCString(chunk_string));
+                            FREE(p_inserted_text);
+                        }
                         p_inserted_text = STRDUP(clang_getCString(chunk_string));
                         break;
 
@@ -773,6 +907,26 @@ void unit_definition_get(unit_t *p_unit,
                                  (unsigned) p_position->position.line + 1,
                                  (unsigned) p_position->position.character + 1);
 
+    /* handle inclusion directives manually */
+    if (clang_getCursorKind(cursor) == CXCursor_InclusionDirective)
+    {
+        CXFile file = clang_getIncludedFile(cursor);
+        CXString filename = clang_getFileName(file);
+
+        location_t location;
+        location.uri = uri_file(clang_getCString(filename));
+        memset(&location.range, 0, sizeof(location.range));
+        location.range.start.valid_fields = POSITION_FIELD_ALL;
+        location.range.end.valid_fields = POSITION_FIELD_ALL;
+        location.range.valid_fields = RANGE_FIELD_ALL;
+        location.valid_fields = LOCATION_FIELD_ALL;
+
+        callback(&location, 0, p_args, DEFINITION_TYPE_DEFINITION);
+
+        uri_free_members(&location.uri);
+        clang_disposeString(filename);
+        return;
+    }
     bool is_reference;
     CXCursor definition_cursor = definition_cursor_get(cursor, &is_reference);
     LOG("USR: %s\n", clang_getCString(clang_getCursorUSR(definition_cursor)));
