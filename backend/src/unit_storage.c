@@ -98,6 +98,9 @@ bool unit_storage_compilation_database_load(const char * p_directory)
 
                 if (p_unit)
                 {
+                    const unsaved_files_t * p_unsaved_files = unsaved_files_get();
+                    unit_index(p_unit, p_unsaved_files->p_list, p_unsaved_files->count);
+
                     unit_storage_add(p_unit);
                 }
 

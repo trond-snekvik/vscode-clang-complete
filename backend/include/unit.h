@@ -35,6 +35,8 @@ typedef struct
 
     fixit_t * p_fixits;
     unsigned fixit_count;
+    Array * p_declarations;
+    Array * p_references;
 } unit_t;
 
 typedef struct
@@ -58,6 +60,10 @@ typedef void (*unit_diagnostics_callback_t)(unit_t * p_unit, const publish_diagn
 typedef void (*unit_fixit_callback_t)(unit_t * p_unit, const publish_diagnostics_params_t * p_diagnostics, void * p_args);
 
 void unit_init(const unit_config_t * p_config);
+
+void unit_index(unit_t * p_unit,
+                struct CXUnsavedFile * p_unsaved_files,
+                uint32_t unsaved_file_count);
 
 void unit_diagnostics_callback_set(unit_diagnostics_callback_t callback);
 
