@@ -73,6 +73,8 @@ static unit_t * add_unit(const char * p_path)
     unit_t *p_unit = unit_create(p_path,
                                  p_flags);
     ASSERT(p_unit);
+    const unsaved_files_t * p_unsaved_files = unsaved_files_get();
+    unit_index(p_unit, p_unsaved_files->p_list, p_unsaved_files->count);
     unit_storage_add(p_unit);
     return p_unit;
 }

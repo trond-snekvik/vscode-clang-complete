@@ -44,6 +44,7 @@ add_executable(${EXECUTABLE}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/command_handler.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/server.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/json_rpc.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/indexer.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/utils.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/path.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/unit.c"

@@ -6,6 +6,8 @@
 #include "doxygen.h"
 #include "decoders.h"
 #include "encoders.h"
+#include "indexer.h"
+#include <Windows.h>
 
 #define TRANSLATION_UNIT_PARSE_OPTIONS (CXTranslationUnit_PrecompiledPreamble |                  \
                                         CXTranslationUnit_CacheCompletionResults |               \
@@ -15,6 +17,9 @@
                                         CXTranslationUnit_KeepGoing)
 
 #define TRANSLATION_UNIT_REPARSE_OPTIONS (CXReparse_None)
+
+#define INDEX_OPTIONS (CXIndexOpt_SuppressRedundantRefs | CXIndexOpt_SkipParsedBodiesInSession | CXIndexOpt_SuppressWarnings)
+#define INDEX_TRANSLATION_UNIT_OPTIONS (CXTranslationUnit_SkipFunctionBodies | CXTranslationUnit_KeepGoing)
 
 #define COMPLETION_FLAGS (CXCodeComplete_IncludeMacros | CXCodeComplete_IncludeBriefComments)
 #define COMPLETION_STRING_MAXLEN    2048
@@ -47,6 +52,8 @@ static CXIndex m_index;
 
 static unit_config_t m_config;
 static unit_diagnostics_callback_t m_diagnostics_callback;
+static index_t m_decl_index;
+static CXIndexAction m_index_action;
 
 static bool position_equal(const position_t * p_pos1, const position_t * p_pos2)
 {
@@ -371,11 +378,85 @@ static void include_visitor(CXFile included_file,
     }
 }
 
+typedef struct
+{
+    unit_t * p_unit;
+    CXFile main_file;
+    bool in_main_file;
+} index_context_t;
+
+static CXIdxClientFile index_entered_mainfile(CXClientData client_data, CXFile main_file, void * p_reserved)
+{
+    index_context_t * p_context = client_data;
+    p_context->main_file = main_file;
+    p_context->in_main_file = true;
+    return NULL;
+}
+
+static void index_declaration(CXClientData client_data, const CXIdxDeclInfo * p_info)
+{
+    enum CXVisibilityKind visibility = clang_getCursorVisibility(p_info->cursor);
+
+    if (p_info->isDefinition && p_info->isContainer && p_info->entityInfo && visibility == CXVisibility_Default)
+    {
+        index_context_t * p_context = client_data;
+        CXFile file;
+        unsigned line;
+        unsigned column;
+        clang_indexLoc_getFileLocation(p_info->loc, NULL, &file, &line, &column, NULL);
+        CXString filename = clang_getFileName(file);
+
+        if (clang_File_isEqual(file, p_context->main_file))
+        {
+            index_declaration_t * p_decl = MALLOC(sizeof(index_declaration_t));
+            ASSERT(p_decl);
+
+            p_decl->p_USR = NULL;
+            p_decl->p_unit = p_context->p_unit;
+            p_decl->location.uri = uri_file(clang_getCString(filename));
+            p_decl->location.range.start.line = line - 1;
+            p_decl->location.range.start.character = column - 1;
+            p_decl->location.range.start.valid_fields = POSITION_FIELD_ALL;
+            p_decl->location.range.end = p_decl->location.range.start;
+            p_decl->location.range.valid_fields = RANGE_FIELD_ALL;
+            p_decl->location.valid_fields = LOCATION_FIELD_ALL;
+
+            index_declaration_add(&m_decl_index, p_info->entityInfo->USR, p_decl);
+            array_add(p_context->p_unit->p_declarations, p_decl);
+#if 0
+            LOG("Decl: %s | %s:%u:%u [def: %u, container: %u, redecl: %u, skipped: %u] (kind: %s)\n",
+                p_info->entityInfo->USR,
+                clang_getCString(filename),
+                line,
+                column,
+                p_info->isDefinition,
+                p_info->isContainer,
+                p_info->isRedeclaration,
+                (p_info->flags & CXIdxDeclFlag_Skipped),
+                clang_getCString(clang_getCursorKindSpelling(clang_getCursorKind(p_info->cursor))));
+#endif
+        }
+        clang_disposeString(filename);
+    }
+}
+
+static void clear_index_decls(unit_t * p_unit)
+{
+    index_declaration_t * p_decl;
+    while (array_remove_last(p_unit->p_declarations, &p_decl) == CC_OK)
+    {
+        index_decl_remove(&m_decl_index, p_decl->p_USR, p_decl);
+        index_decl_free(p_decl);
+    }
+}
+
 void unit_init(const unit_config_t * p_config)
 {
     m_index = clang_createIndex(true, false);
     clang_CXIndex_setGlobalOptions(m_index, CXGlobalOpt_ThreadBackgroundPriorityForEditing);
     m_config = *p_config;
+    index_init(&m_decl_index);
+    m_index_action = clang_IndexAction_create(m_index);
 }
 
 void unit_diagnostics_callback_set(unit_diagnostics_callback_t callback)
@@ -395,8 +476,38 @@ unit_t * unit_create(const char * p_filename,
     p_unit->p_fixits = NULL;
     p_unit->fixit_count = 0;
     ASSERT(hashtable_new(&p_unit->diag_files) == CC_OK);
+    ASSERT(array_new(&p_unit->p_declarations) == CC_OK);
     LOG("Added unit %s\n", p_unit->p_filename);
     return p_unit;
+}
+
+void unit_index(unit_t * p_unit,
+                struct CXUnsavedFile * p_unsaved_files,
+                uint32_t unsaved_file_count)
+{
+    DWORD start_timer = GetTickCount();
+    IndexerCallbacks callbacks = {
+        .enteredMainFile = index_entered_mainfile,
+        .indexDeclaration = index_declaration
+    };
+    index_context_t context = {
+        .p_unit = p_unit
+    };
+
+    clang_indexSourceFile(m_index_action,
+                          &context,
+                          &callbacks,
+                          sizeof(callbacks),
+                          CXIndexOpt_SuppressRedundantRefs | CXIndexOpt_SuppressWarnings,
+                          p_unit->p_filename,
+                          p_unit->flags.pp_array,
+                          p_unit->flags.count,
+                          p_unsaved_files,
+                          unsaved_file_count,
+                          NULL,
+                          INDEX_TRANSLATION_UNIT_OPTIONS);
+    DWORD end_timer = GetTickCount();
+    LOG("Index: %ums\n", end_timer - start_timer);
 }
 
 bool unit_parse(unit_t * p_unit,
@@ -433,15 +544,137 @@ bool unit_reparse(unit_t * p_unit,
                   uint32_t unsaved_file_count)
 {
     ASSERT(p_unit->active);
+
+    clear_index_decls(p_unit);
+
     enum CXErrorCode status = clang_reparseTranslationUnit(p_unit->tu,
                                          unsaved_file_count,
                                          p_unsaved_files,
                                          TRANSLATION_UNIT_REPARSE_OPTIONS);
-    if (status != CXError_Success)
+    if (status == CXError_Success)
+    {
+        DWORD start_timer = GetTickCount();
+        IndexerCallbacks callbacks = {
+            .enteredMainFile = index_entered_mainfile,
+            .indexDeclaration = index_declaration
+        };
+        index_context_t context = {
+            .p_unit = p_unit
+        };
+        clang_indexTranslationUnit(m_index_action, &context, &callbacks, sizeof(callbacks), INDEX_OPTIONS, p_unit->tu);
+
+        DWORD end_timer = GetTickCount();
+        LOG("Index: %ums\n", end_timer - start_timer);
+    }
+    else
     {
         LOG("Reparse failed: Status %u\n", status);
     }
     return (status == CXError_Success);
+}
+
+static bool is_include_statement(unit_t * p_unit,
+                                  const text_document_position_params_t *p_position,
+                                  range_t * p_replace_range)
+{
+    CXFile file = clang_getFile(p_unit->tu, p_position->text_document.uri.path);
+    CXSourceLocation location_cursor = clang_getLocation(p_unit->tu,
+                                                         file,
+                                                         (unsigned) p_position->position.line + 1,
+                                                         (unsigned) p_position->position.character + 1);
+    CXSourceLocation location_start = clang_getLocation(p_unit->tu,
+                                                        file,
+                                                        (unsigned) p_position->position.line + 1, 1);
+    CXSourceRange range = clang_getRange(location_start, location_cursor);
+
+    CXToken *p_tokens = NULL;
+    unsigned token_count = 0;
+
+    clang_tokenize(p_unit->tu, range, &p_tokens, &token_count);
+
+    bool is_match = false;
+
+    if (token_count >= 3) /* Expecting at least #, include, " or similar */
+    {
+        CXCursor * p_cursors = MALLOC(sizeof(CXCursor) * token_count);
+        ASSERT(p_cursors);
+        clang_annotateTokens(p_unit->tu, p_tokens, token_count, p_cursors);
+
+        enum CXCursorKind cursor_kind = clang_getCursorKind(p_cursors[0]);
+
+        if (cursor_kind == CXCursor_InclusionDirective)
+        {
+            is_match = true;
+        }
+        else if (cursor_kind == CXCursor_PreprocessingDirective)
+        {
+            CXString string_hash = clang_getTokenSpelling(p_unit->tu, p_tokens[0]);
+            CXString string_include = clang_getTokenSpelling(p_unit->tu, p_tokens[1]);
+            CXString string_filename = clang_getTokenSpelling(p_unit->tu, p_tokens[2]);
+
+            is_match = (strcmp(clang_getCString(string_hash), "#") == 0 &&
+                        (strcmp(clang_getCString(string_include), "include") == 0 ||
+                         strcmp(clang_getCString(string_include), "include_next") == 0) &&
+                        (clang_getCString(string_filename)[0] == '"' ||
+                         clang_getCString(string_filename)[0] == '<'));
+
+            clang_disposeString(string_hash);
+            clang_disposeString(string_include);
+            clang_disposeString(string_filename);
+        }
+
+        if (is_match)
+        {
+            CXSourceRange start_range = clang_getTokenExtent(p_unit->tu, p_tokens[2]);
+            CXSourceRange end_range = clang_getTokenExtent(p_unit->tu, p_tokens[token_count - 1]);
+            CXSourceLocation start_location = clang_getRangeStart(start_range);
+            CXSourceLocation end_location = clang_getRangeEnd(end_range);
+
+            unsigned start_line, start_character;
+            unsigned end_line, end_character;
+            clang_getSpellingLocation(start_location, NULL, &start_line, &start_character, NULL);
+            clang_getSpellingLocation(end_location, NULL, &end_line, &end_character, NULL);
+            /* If the second and the last token are different, we're off by one */
+            if (&p_tokens[2] != &p_tokens[token_count - 1])
+            {
+                end_character += 1;
+            }
+            /* Add one character at start, remove one at end to get it within the quotes */
+            p_replace_range->start.line = start_line - 1;
+            p_replace_range->start.character = start_character;
+            p_replace_range->start.valid_fields = POSITION_FIELD_ALL;
+
+            p_replace_range->end.line = end_line - 1;
+            p_replace_range->end.character = end_character - 2;
+            p_replace_range->end.valid_fields = POSITION_FIELD_ALL;
+
+            p_replace_range->valid_fields = RANGE_FIELD_ALL;
+        }
+
+        FREE(p_cursors);
+        clang_disposeTokens(p_unit->tu, p_tokens, token_count);
+    }
+    return is_match;
+}
+
+typedef struct
+{
+    size_t base_path_len;
+    completion_item_t completion_item;
+    unit_completion_result_callback_t callback;
+    void * p_args;
+} include_file_completion_callback_context_t;
+
+static void include_file_completion_callback(const char * p_filename, path_kind_t kind, void * p_args)
+{
+    if (kind == PATH_KIND_FILE)
+    {
+        include_file_completion_callback_context_t * p_context = p_args;
+        ASSERT(strlen(p_filename) >= p_context->base_path_len);
+        p_context->completion_item.text_edit.new_text = (char *) &p_filename[p_context->base_path_len + 1];
+        p_context->completion_item.label = (char *) &p_filename[p_context->base_path_len + 1];
+        p_context->callback(&p_context->completion_item, 0, p_context->p_args);
+    }
 }
 
 bool unit_code_completion(unit_t *p_unit,
@@ -456,6 +689,33 @@ bool unit_code_completion(unit_t *p_unit,
     ASSERT(p_position);
     ASSERT(callback);
     ASSERT(p_unit->active);
+
+    range_t include_range;
+
+    if (is_include_statement(p_unit, p_position, &include_range))
+    {
+        include_file_completion_callback_context_t context;
+        context.callback = callback;
+        context.p_args = p_args;
+
+        context.completion_item.valid_fields = (COMPLETION_ITEM_FIELD_LABEL | COMPLETION_ITEM_FIELD_TEXT_EDIT | COMPLETION_ITEM_FIELD_KIND);
+        context.completion_item.text_edit.range = include_range;
+        context.completion_item.text_edit.valid_fields = TEXT_EDIT_FIELD_ALL;
+        context.completion_item.kind = COMPLETION_ITEM_KIND_FILE;
+
+        for (unsigned i = 0; i < p_unit->flags.count; ++i)
+        {
+            if (strstr(p_unit->flags.pp_array[i], "-I") == p_unit->flags.pp_array[i] ||
+                strstr(p_unit->flags.pp_array[i], "-i") == p_unit->flags.pp_array[i])
+            {
+                const char * p_directory = &(p_unit->flags.pp_array[i])[2];
+                context.base_path_len = strlen(p_directory);
+                path_get_files(p_directory, include_file_completion_callback, true, &context);
+            }
+        }
+
+        return true;
+    }
 
     CXCodeCompleteResults * p_results = clang_codeCompleteAt(p_unit->tu,
                                                              p_position->text_document.uri.path,
@@ -525,7 +785,11 @@ bool unit_code_completion(unit_t *p_unit,
                         break;
 
                     case CXCompletionChunk_Text:
-                        ASSERT(!p_inserted_text);
+                        if (p_inserted_text)
+                        {
+                            LOG("Got second inserted text (old: %s, new: %s)\n", p_inserted_text, clang_getCString(chunk_string));
+                            FREE(p_inserted_text);
+                        }
                         p_inserted_text = STRDUP(clang_getCString(chunk_string));
                         break;
 
@@ -773,13 +1037,55 @@ void unit_definition_get(unit_t *p_unit,
                                  (unsigned) p_position->position.line + 1,
                                  (unsigned) p_position->position.character + 1);
 
+    /* handle inclusion directives manually */
+    if (clang_getCursorKind(cursor) == CXCursor_InclusionDirective)
+    {
+        CXFile file = clang_getIncludedFile(cursor);
+        CXString filename = clang_getFileName(file);
+
+        location_t location;
+        location.uri = uri_file(clang_getCString(filename));
+        memset(&location.range, 0, sizeof(location.range));
+        location.range.start.valid_fields = POSITION_FIELD_ALL;
+        location.range.end.valid_fields = POSITION_FIELD_ALL;
+        location.range.valid_fields = RANGE_FIELD_ALL;
+        location.valid_fields = LOCATION_FIELD_ALL;
+
+        callback(&location, 0, p_args, DEFINITION_TYPE_DEFINITION);
+
+        uri_free_members(&location.uri);
+        clang_disposeString(filename);
+        return;
+    }
     bool is_reference;
     CXCursor definition_cursor = definition_cursor_get(cursor, &is_reference);
-    LOG("USR: %s\n", clang_getCString(clang_getCursorUSR(definition_cursor)));
 
     if (!clang_Cursor_isNull(definition_cursor)) // && !clang_equalCursors(cursor, definition_cursor))
     {
-        LOG("Got definition cursor\n");
+        if (is_reference)
+        {
+            CXString USR = clang_getCursorUSR(definition_cursor);
+            LOG("Got reference cursor for %s\n", clang_getCString(USR));
+            Array * p_results = index_decls_get(&m_decl_index, clang_getCString(USR));
+            bool found_def = false;
+            if (p_results)
+            {
+                ArrayIter iter;
+                array_iter_init(&iter, p_results);
+                index_declaration_t * p_decl;
+                while (array_iter_next(&iter, &p_decl) != CC_ITER_END)
+                {
+                    found_def = true;
+                    callback(&p_decl->location, 0, p_args, DEFINITION_TYPE_DEFINITION);
+                }
+            }
+            clang_disposeString(USR);
+            if (found_def)
+            {
+                return;
+            }
+        }
+
         definition_t * p_definition = definition_get(definition_cursor);
         if (p_definition)
         {
@@ -926,7 +1232,6 @@ unsigned unit_diagnostics_get(unit_t *p_unit,
         p_unit->fixit_count = total_fixit_count;
         p_unit->p_fixits = REALLOC(p_unit->p_fixits, sizeof(fixit_t) * total_fixit_count);
     }
-    LOG("-- GET DIAGS (%u)\n", count);
 
     for (unsigned i = 0; i < count; ++i)
     {
@@ -998,17 +1303,14 @@ unsigned unit_diagnostics_get(unit_t *p_unit,
 
     if (hashtable_size(p_unit->diag_files) > 0)
     {
-        LOG("-- REPORTING (0x%p)\n", p_unit->diag_files);
         HashTableIter iter;
         hashtable_iter_init(&iter, p_unit->diag_files);
         TableEntry * p_entry;
         while (hashtable_iter_next(&iter, &p_entry) == CC_OK)
         {
-            LOG("-- WHAT\n");
             ASSERT(p_entry);
             diag_file_t * p_file = (diag_file_t *) p_entry->value;
             ASSERT(p_file);
-            LOG("-- ITERATOR: %s diag: %u\n", p_file->p_uri ? p_file->p_uri : NO_FILENAME_DIAG, p_file->diag_count);
 
             publish_diagnostics_params_t publish;
             publish.uri = uri_decode(p_file->p_uri ? p_file->p_uri : NO_FILENAME_DIAG);
