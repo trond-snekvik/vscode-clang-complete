@@ -17,6 +17,7 @@
  ******************************************************************************/
 #define LSP_REQUEST_INITIALIZE "initialize"
 #define LSP_REQUEST_WORKSPACE_SYMBOL "workspace/symbol"
+#define LSP_REQUEST_TEXT_DOCUMENT_DOCUMENT_SYMBOL "textDocument/documentSymbol"
 #define LSP_REQUEST_TEXT_DOCUMENT_COMPLETION "textDocument/completion"
 #define LSP_REQUEST_TEXT_DOCUMENT_SIGNATURE_HELP "textDocument/signatureHelp"
 #define LSP_REQUEST_TEXT_DOCUMENT_DEFINITION "textDocument/definition"
@@ -34,6 +35,7 @@
  ******************************************************************************/
 static lsp_request_handler_initialize_t mp_request_handler_initialize;
 static lsp_request_handler_workspace_symbol_t mp_request_handler_workspace_symbol;
+static lsp_request_handler_text_document_document_symbol_t mp_request_handler_text_document_document_symbol;
 static lsp_request_handler_text_document_completion_t mp_request_handler_text_document_completion;
 static lsp_request_handler_text_document_signature_help_t mp_request_handler_text_document_signature_help;
 static lsp_request_handler_text_document_definition_t mp_request_handler_text_document_definition;
@@ -74,6 +76,19 @@ static void request_handler_workspace_symbol(const char * p_method, json_t * p_p
         json_rpc_error_response_send(p_response, JSON_RPC_ERROR_INVALID_PARAMS, "Required parameters missing", NULL);
     }
     free_workspace_symbol_params(params);
+}
+static void request_handler_text_document_document_symbol(const char * p_method, json_t * p_params, json_t * p_response)
+{
+    document_symbol_params_t params = decode_document_symbol_params(p_params);
+    if (decoder_error() == DECODER_ERROR_NONE)
+    {
+        mp_request_handler_text_document_document_symbol(&params, p_response);
+    }
+    else
+    {
+        json_rpc_error_response_send(p_response, JSON_RPC_ERROR_INVALID_PARAMS, "Required parameters missing", NULL);
+    }
+    free_document_symbol_params(params);
 }
 static void request_handler_text_document_completion(const char * p_method, json_t * p_params, json_t * p_response)
 {
@@ -203,6 +218,11 @@ void lsp_request_handler_workspace_symbol_register(lsp_request_handler_workspace
 {
     mp_request_handler_workspace_symbol = handler;
     json_rpc_request_handler_add(LSP_REQUEST_WORKSPACE_SYMBOL, request_handler_workspace_symbol);
+}
+void lsp_request_handler_text_document_document_symbol_register(lsp_request_handler_text_document_document_symbol_t handler)
+{
+    mp_request_handler_text_document_document_symbol = handler;
+    json_rpc_request_handler_add(LSP_REQUEST_TEXT_DOCUMENT_DOCUMENT_SYMBOL, request_handler_text_document_document_symbol);
 }
 void lsp_request_handler_text_document_completion_register(lsp_request_handler_text_document_completion_t handler)
 {

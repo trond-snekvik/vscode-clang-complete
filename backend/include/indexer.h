@@ -3,12 +3,20 @@
 #include "unit.h"
 #include "hashtable.h"
 
+typedef enum
+{
+    INDEX_SCOPE_LOCAL,
+    INDEX_SCOPE_GLOBAL
+} index_scope_t;
 
 typedef struct
 {
     const char * p_USR;
+    char * p_name;
     location_t location;
     unit_t * p_unit;
+    index_scope_t scope;
+    symbol_kind_t kind;
 } index_declaration_t;
 
 typedef struct

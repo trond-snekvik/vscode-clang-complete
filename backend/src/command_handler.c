@@ -60,6 +60,20 @@ static void definition_callback(const location_t * p_location, unsigned index, v
     json_array_append_new(p_definition_array, encode_location(*p_location));
 }
 
+static void symbol_callback(const location_t * p_location, const char * p_name, symbol_kind_t kind, void * p_args)
+{
+    json_t * p_symbol_array = p_args;
+    symbol_information_t info;
+    info.kind = kind;
+    info.location = *p_location;
+    info.name = (char *) p_name;
+    info.valid_fields = (SYMBOL_INFORMATION_FIELD_KIND |
+                         SYMBOL_INFORMATION_FIELD_LOCATION |
+                         SYMBOL_INFORMATION_FIELD_LOCATION |
+                         SYMBOL_INFORMATION_FIELD_NAME);
+    json_array_append_new(p_symbol_array, encode_symbol_information(info));
+}
+
 static unit_t * add_unit(const char * p_path)
 {
     // Check if some better flags can be found
@@ -166,12 +180,15 @@ static void handle_request_initialize(const initialize_params_t * p_params, json
             .hover_provider = true,
             .definition_provider = true,
             .code_action_provider = true,
+            .document_symbol_provider = true,
             .valid_fields = ( SERVER_CAPABILITIES_FIELD_TEXT_DOCUMENT_SYNC
                             | SERVER_CAPABILITIES_FIELD_COMPLETION_PROVIDER
                             | SERVER_CAPABILITIES_FIELD_SIGNATURE_HELP_PROVIDER
                             | SERVER_CAPABILITIES_FIELD_HOVER_PROVIDER
                             | SERVER_CAPABILITIES_FIELD_DEFINITION_PROVIDER
-                            | SERVER_CAPABILITIES_FIELD_CODE_ACTION_PROVIDER)
+                            | SERVER_CAPABILITIES_FIELD_DOCUMENT_SYMBOL_PROVIDER
+                            // | SERVER_CAPABILITIES_FIELD_CODE_ACTION_PROVIDER
+                            )
         },
         .valid_fields = INITIALIZE_RESULT_FIELD_CAPABILITIES
     };
@@ -406,6 +423,28 @@ static void handle_request_text_document_code_action(const code_action_params_t 
     json_rpc_response_send(p_response, p_rsp_args);
 }
 
+static void handle_request_text_document_document_symbol(const document_symbol_params_t * p_params, json_t * p_response)
+{
+    if (p_params->text_document.uri.path)
+    {
+        unit_t * p_unit = get_or_create_unit(p_params->text_document.uri.path);
+        if (p_unit)
+        {
+            json_t * p_symbol_array = json_array();
+            unit_symbols_get(p_unit, symbol_callback, p_symbol_array);
+            json_rpc_response_send(p_response, p_symbol_array);
+        }
+        else
+        {
+            json_rpc_error_response_send(p_response, 1, "No unit found", NULL);
+        }
+    }
+    else
+    {
+        json_rpc_error_response_send(p_response, 1, "Not a file with a path", NULL);
+    }
+}
+
 void command_handler_init(void)
 {
     unit_config_t config;
@@ -430,5 +469,6 @@ void command_handler_init(void)
     lsp_request_handler_text_document_definition_register(handle_request_text_document_definition);
     lsp_request_handler_text_document_hover_register(handle_request_text_document_hover);
     lsp_request_handler_text_document_code_action_register(handle_request_text_document_code_action);
+    lsp_request_handler_text_document_document_symbol_register(handle_request_text_document_document_symbol);
 }
 

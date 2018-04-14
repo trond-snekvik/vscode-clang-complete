@@ -22,6 +22,7 @@
  ******************************************************************************/
 typedef void (*lsp_request_handler_initialize_t)(const initialize_params_t * p_params, json_t * p_response);
 typedef void (*lsp_request_handler_workspace_symbol_t)(const workspace_symbol_params_t * p_params, json_t * p_response);
+typedef void (*lsp_request_handler_text_document_document_symbol_t)(const document_symbol_params_t * p_params, json_t * p_response);
 typedef void (*lsp_request_handler_text_document_completion_t)(const text_document_position_params_t * p_params, json_t * p_response);
 typedef void (*lsp_request_handler_text_document_signature_help_t)(const text_document_position_params_t * p_params, json_t * p_response);
 typedef void (*lsp_request_handler_text_document_definition_t)(const text_document_position_params_t * p_params, json_t * p_response);
@@ -43,6 +44,7 @@ typedef void (*lsp_notification_handler_text_document_did_close_t)(const did_clo
  ******************************************************************************/
 void lsp_request_handler_initialize_register(lsp_request_handler_initialize_t handler);
 void lsp_request_handler_workspace_symbol_register(lsp_request_handler_workspace_symbol_t handler);
+void lsp_request_handler_text_document_document_symbol_register(lsp_request_handler_text_document_document_symbol_t handler);
 void lsp_request_handler_text_document_completion_register(lsp_request_handler_text_document_completion_t handler);
 void lsp_request_handler_text_document_signature_help_register(lsp_request_handler_text_document_signature_help_t handler);
 void lsp_request_handler_text_document_definition_register(lsp_request_handler_text_document_definition_t handler);

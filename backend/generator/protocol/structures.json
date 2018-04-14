@@ -526,6 +526,11 @@
                 "response": "symbol_information[]"
             },
             {
+                "name": "text_document/document_symbol",
+                "parameters": "document_symbol_params",
+                "response": "symbol_information[]"
+            },
+            {
                 "name": "text_document/completion",
                 "parameters": "text_document_position_params",
                 "response": "completion_item[]"

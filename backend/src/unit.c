@@ -134,6 +134,50 @@ static completion_item_kind_t get_kind(enum CXCursorKind kind)
     }
 }
 
+static symbol_kind_t get_symbol_kind(CXIdxEntityKind kind)
+{
+    switch (kind)
+    {
+        case CXIdxEntity_Function:
+            return SYMBOL_KIND_FUNCTION;
+        case CXIdxEntity_Variable:
+            return SYMBOL_KIND_VARIABLE;
+        // case CXIdxEntity_Field:
+        //     return SYMBOL_KIND_FIELD;
+        case CXIdxEntity_EnumConstant:
+            return SYMBOL_KIND_ENUMMEMBER;
+        case CXIdxEntity_Enum:
+            return SYMBOL_KIND_ENUM;
+        case CXIdxEntity_Struct:
+            return SYMBOL_KIND_STRUCT;
+        case CXIdxEntity_Union:
+            return SYMBOL_KIND_STRUCT;
+        case CXIdxEntity_CXXClass:
+            return SYMBOL_KIND_CLASS;
+        case CXIdxEntity_CXXNamespace:
+            return SYMBOL_KIND_NAMESPACE;
+        case CXIdxEntity_CXXNamespaceAlias:
+            return SYMBOL_KIND_NAMESPACE;
+        case CXIdxEntity_CXXStaticVariable:
+            return SYMBOL_KIND_VARIABLE;
+        case CXIdxEntity_CXXStaticMethod:
+            return SYMBOL_KIND_METHOD;
+        case CXIdxEntity_CXXInstanceMethod:
+            return SYMBOL_KIND_METHOD;
+        case CXIdxEntity_CXXConstructor:
+        case CXIdxEntity_CXXDestructor:
+            return SYMBOL_KIND_CONSTRUCTOR;
+        case CXIdxEntity_CXXConversionFunction:
+            return SYMBOL_KIND_FUNCTION;
+        case CXIdxEntity_CXXTypeAlias:
+            return SYMBOL_KIND__NONE;
+        case CXIdxEntity_CXXInterface:
+            return SYMBOL_KIND_INTERFACE;
+        default:
+            return SYMBOL_KIND__NONE;
+    }
+}
+
 static diagnostic_severity_t get_diagnostic_severity(enum CXDiagnosticSeverity s)
 {
     switch (s)
@@ -395,49 +439,70 @@ static CXIdxClientFile index_entered_mainfile(CXClientData client_data, CXFile m
 
 static void index_declaration(CXClientData client_data, const CXIdxDeclInfo * p_info)
 {
-    enum CXVisibilityKind visibility = clang_getCursorVisibility(p_info->cursor);
-
-    if (p_info->isDefinition && p_info->isContainer && p_info->entityInfo && visibility == CXVisibility_Default)
+    if (p_info->isDefinition && p_info->entityInfo)
     {
-        index_context_t * p_context = client_data;
-        CXFile file;
-        unsigned line;
-        unsigned column;
-        clang_indexLoc_getFileLocation(p_info->loc, NULL, &file, &line, &column, NULL);
-        CXString filename = clang_getFileName(file);
+        symbol_kind_t kind = get_symbol_kind(p_info->entityInfo->kind);
+        CXString symbolname = clang_getCursorDisplayName(p_info->cursor);
 
-        if (clang_File_isEqual(file, p_context->main_file))
+        if (kind != SYMBOL_KIND__NONE && strlen(clang_getCString(symbolname)) != 0)
         {
-            index_declaration_t * p_decl = MALLOC(sizeof(index_declaration_t));
-            ASSERT(p_decl);
+            index_context_t * p_context = client_data;
+            CXFile file;
+            unsigned line;
+            unsigned column;
+            clang_indexLoc_getFileLocation(p_info->loc, NULL, &file, &line, &column, NULL);
+            CXString filename = clang_getFileName(file);
 
-            p_decl->p_USR = NULL;
-            p_decl->p_unit = p_context->p_unit;
-            p_decl->location.uri = uri_file(clang_getCString(filename));
-            p_decl->location.range.start.line = line - 1;
-            p_decl->location.range.start.character = column - 1;
-            p_decl->location.range.start.valid_fields = POSITION_FIELD_ALL;
-            p_decl->location.range.end = p_decl->location.range.start;
-            p_decl->location.range.valid_fields = RANGE_FIELD_ALL;
-            p_decl->location.valid_fields = LOCATION_FIELD_ALL;
+            if (clang_File_isEqual(file, p_context->main_file))
+            {
+                index_declaration_t * p_decl = MALLOC(sizeof(index_declaration_t));
+                ASSERT(p_decl);
 
-            index_declaration_add(&m_decl_index, p_info->entityInfo->USR, p_decl);
-            array_add(p_context->p_unit->p_declarations, p_decl);
+                enum CXVisibilityKind visibility = clang_getCursorVisibility(p_info->cursor);
+
+                p_decl->p_USR = NULL;
+                p_decl->kind = kind;
+                p_decl->p_name = STRDUP(clang_getCString(symbolname));
+                p_decl->p_unit = p_context->p_unit;
+                p_decl->scope = (visibility == CXVisibility_Default) ? INDEX_SCOPE_GLOBAL : INDEX_SCOPE_LOCAL;
+                p_decl->location.uri = uri_file(clang_getCString(filename));
+                p_decl->location.range.start.line = line - 1;
+                p_decl->location.range.start.character = column - 1;
+                p_decl->location.range.start.valid_fields = POSITION_FIELD_ALL;
+                p_decl->location.range.end = p_decl->location.range.start;
+                p_decl->location.range.valid_fields = RANGE_FIELD_ALL;
+                p_decl->location.valid_fields = LOCATION_FIELD_ALL;
+
+                index_declaration_add(&m_decl_index, p_info->entityInfo->USR, p_decl);
+                array_add(p_context->p_unit->p_declarations, p_decl);
+
 #if 0
-            LOG("Decl: %s | %s:%u:%u [def: %u, container: %u, redecl: %u, skipped: %u] (kind: %s)\n",
-                p_info->entityInfo->USR,
-                clang_getCString(filename),
-                line,
-                column,
-                p_info->isDefinition,
-                p_info->isContainer,
-                p_info->isRedeclaration,
-                (p_info->flags & CXIdxDeclFlag_Skipped),
-                clang_getCString(clang_getCursorKindSpelling(clang_getCursorKind(p_info->cursor))));
+                LOG("Decl: %s | %s:%u:%u [def: %u, container: %u, redecl: %u, skipped: %u] (kind: %s)\n",
+                    p_info->entityInfo->USR,
+                    clang_getCString(filename),
+                    line,
+                    column,
+                    p_info->isDefinition,
+                    p_info->isContainer,
+                    p_info->isRedeclaration,
+                    (p_info->flags & CXIdxDeclFlag_Skipped),
+                    clang_getCString(clang_getCursorKindSpelling(clang_getCursorKind(p_info->cursor))));
 #endif
+            }
+            clang_disposeString(filename);
         }
-        clang_disposeString(filename);
+        clang_disposeString(symbolname);
     }
+}
+
+CXIdxClientFile index_included_file(CXClientData client_data, const CXIdxIncludedFileInfo * p_info)
+{
+    index_context_t * p_context = client_data;
+    CXString filename = clang_getFileName(p_info->file);
+    char * p_filename = STRDUP(clang_getCString(filename));
+    ASSERT(hashtable_add(p_context->p_unit->p_included_files, p_filename, p_filename) == CC_OK);
+    clang_disposeString(filename);
+    return NULL;
 }
 
 static void clear_index_decls(unit_t * p_unit)
@@ -448,6 +513,22 @@ static void clear_index_decls(unit_t * p_unit)
         index_decl_remove(&m_decl_index, p_decl->p_USR, p_decl);
         index_decl_free(p_decl);
     }
+}
+
+static void clear_included_files(unit_t * p_unit)
+{
+	if (hashtable_size(p_unit->p_included_files) > 0)
+	{
+		HashTableIter iter;
+		hashtable_iter_init(&iter, p_unit->p_included_files);
+		TableEntry * p_entry;
+		while (hashtable_iter_next(&iter, &p_entry) == CC_OK)
+		{
+			char * p_value;
+			if (hashtable_iter_remove(&iter, &p_value) == CC_OK)
+				FREE(p_value);
+		}
+	}
 }
 
 static bool index_source_file(unit_t * p_unit,
@@ -582,6 +663,9 @@ bool unit_parse(unit_t * p_unit,
                 uint32_t unsaved_file_count)
 {
     ASSERT(!p_unit->active);
+    mutex_take(&p_unit->decl_mutex);
+    clear_included_files(p_unit);
+    clear_index_decls(p_unit);
 #if 1
     p_unit->active = (clang_parseTranslationUnit2(m_index,
                                                   p_unit->p_filename,
@@ -595,10 +679,11 @@ bool unit_parse(unit_t * p_unit,
     {
         index_translation_unit(p_unit);
     }
-    return p_unit->active;
 #else
-    return index_source_file(p_unit, p_unsaved_files, unsaved_file_count, true);
+    index_source_file(p_unit, p_unsaved_files, unsaved_file_count, true);
 #endif
+    mutex_release(&p_unit->decl_mutex);
+    return p_unit->active;
 }
 
 void unit_free(unit_t * p_unit)
@@ -619,8 +704,10 @@ bool unit_reparse(unit_t * p_unit,
                   uint32_t unsaved_file_count)
 {
     ASSERT(p_unit->active);
+    mutex_take(&p_unit->decl_mutex);
 
     clear_index_decls(p_unit);
+    clear_included_files(p_unit);
 
     enum CXErrorCode status = clang_reparseTranslationUnit(p_unit->tu,
                                          unsaved_file_count,
@@ -634,6 +721,7 @@ bool unit_reparse(unit_t * p_unit,
     {
         LOG("Reparse failed: Status %u\n", status);
     }
+    mutex_release(&p_unit->decl_mutex);
     return (status == CXError_Success);
 }
 
@@ -1455,4 +1543,17 @@ bool unit_includes_file(unit_t * p_unit, const char * p_file)
     };
     clang_getInclusions(p_unit->tu, include_visitor, &context);
     return context.found_file;
+}
+
+void unit_symbols_get(unit_t * p_unit, unit_symbol_callback_t callback, void * p_args)
+{
+    mutex_take(&p_unit->decl_mutex);
+    ArrayIter iter;
+    array_iter_init(&iter, p_unit->p_declarations);
+    index_declaration_t * p_decl;
+    while (array_iter_next(&iter, &p_decl) == CC_OK)
+    {
+        callback(&p_decl->location, p_decl->p_name, p_decl->kind, p_args);
+    }
+    mutex_release(&p_unit->decl_mutex);
 }

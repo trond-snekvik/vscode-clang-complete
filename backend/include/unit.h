@@ -63,6 +63,7 @@ typedef void (*unit_definition_callback_t)(const location_t * p_location, unsign
 typedef void (*unit_signature_callback_t)(const signature_information_t * p_signature, unsigned index, void * p_args);
 typedef void (*unit_diagnostics_callback_t)(unit_t * p_unit, const publish_diagnostics_params_t * p_diagnostics, void * p_args);
 typedef void (*unit_fixit_callback_t)(unit_t * p_unit, const publish_diagnostics_params_t * p_diagnostics, void * p_args);
+typedef void (*unit_symbol_callback_t)(const location_t * p_location, const char * p_symbol_name, symbol_kind_t kind, void * p_args);
 
 void unit_init(const unit_config_t * p_config);
 
@@ -121,6 +122,8 @@ unsigned unit_diagnostics_get(unit_t *p_unit,
 void unit_fixits_resolve(unit_t * p_unit, const char * p_filename, const range_t * p_range, command_t * p_commands, unsigned * p_count);
 
 bool unit_includes_file(unit_t * p_unit, const char * p_file);
+
+void unit_symbols_get(unit_t * p_unit, unit_symbol_callback_t callback, void * p_args);
 
 static inline void compile_flags_clone(compile_flags_t * p_dst, const compile_flags_t * p_src)
 {
