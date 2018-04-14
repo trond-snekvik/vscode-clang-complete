@@ -57,11 +57,8 @@ typedef struct
 typedef struct
 {
     mutex_t mut;
-#ifdef _WIN32
+    mutex_t owner_mut;
     unsigned users;
-    HANDLE owner_event;
-    HANDLE user_event;
-#endif
 } shared_resource_t;
 
 typedef enum

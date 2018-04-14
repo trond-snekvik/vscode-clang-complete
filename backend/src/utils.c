@@ -151,47 +151,6 @@ int atomic_get_and_sub(atomic_counter_t * p_flag)
     return (int) InterlockedAdd(&p_flag->value, -1);
 }
 
-void shared_resource_init(shared_resource_t * p_resource)
-{
-    mutex_init(&p_resource->mut);
-    p_resource->user_event = CreateEvent(NULL, true, true, NULL);
-    p_resource->owner_event = CreateEvent(NULL, true, true, NULL);
-    p_resource->users = 0;
-}
-
-void shared_resource_borrow(shared_resource_t * p_resource)
-{
-    mutex_take(&p_resource->mut);
-    if (p_resource->users++ == 0)
-    {
-        ResetEvent(p_resource->user_event);
-    }
-    mutex_release(&p_resource->mut);
-    WaitForSingleObject(p_resource->owner_event, 0);
-}
-
-void shared_resource_release(shared_resource_t * p_resource)
-{
-    mutex_take(&p_resource->mut);
-    ASSERT(p_resource->users > 0);
-    if (--p_resource->users == 0)
-    {
-        SetEvent(p_resource->user_event);
-    }
-    mutex_release(&p_resource->mut);
-}
-
-void shared_resource_lock(shared_resource_t * p_resource)
-{
-    ResetEvent(p_resource->owner_event);
-    WaitForSingleObject(p_resource->user_event, 0);
-}
-
-void shared_resource_unlock(shared_resource_t * p_resource)
-{
-    SetEvent(p_resource->owner_event);
-}
-
 #else
 static void * posix_thread(void * p_args)
 {
@@ -201,3 +160,43 @@ static void * posix_thread(void * p_args)
 }
 #endif
 
+
+void shared_resource_init(shared_resource_t * p_resource)
+{
+    mutex_init(&p_resource->mut);
+    mutex_init(&p_resource->owner_mut);
+    p_resource->users = 0;
+}
+
+void shared_resource_borrow(shared_resource_t * p_resource)
+{
+    mutex_take(&p_resource->mut);
+    p_resource->users++;
+    if (p_resource->users == 1)
+    {
+        mutex_take(&p_resource->owner_mut);
+    }
+    mutex_release(&p_resource->mut);
+}
+
+void shared_resource_release(shared_resource_t * p_resource)
+{
+    mutex_take(&p_resource->mut);
+    ASSERT(p_resource->users > 0);
+    p_resource->users--;
+    if (p_resource->users == 0)
+    {
+        mutex_release(&p_resource->owner_mut);
+    }
+    mutex_release(&p_resource->mut);
+}
+
+void shared_resource_lock(shared_resource_t * p_resource)
+{
+    mutex_take(&p_resource->owner_mut);
+}
+
+void shared_resource_unlock(shared_resource_t * p_resource)
+{
+    mutex_release(&p_resource->owner_mut);
+}
