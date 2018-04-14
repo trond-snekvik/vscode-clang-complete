@@ -202,7 +202,6 @@ bool path_equals(const char * p_path1, const char * p_path2)
     char * p_abs_path1 = absolute_path(p_path1, path_cwd());
     char * p_abs_path2 = absolute_path(p_path2, path_cwd());
     size_t diff = strcmp(p_abs_path1, p_abs_path2);
-    LOG("Comparing paths %s and %s: %d\n", p_abs_path1, p_abs_path2, diff);
     free(p_abs_path1);
     free(p_abs_path2);
     return (diff == 0);
