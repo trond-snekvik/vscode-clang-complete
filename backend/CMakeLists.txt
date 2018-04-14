@@ -58,11 +58,14 @@ add_executable(${EXECUTABLE}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/protocol/uri.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/lib/Collections-C/src/hashtable.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/lib/Collections-C/src/common.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/lib/Collections-C/src/queue.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/lib/Collections-C/src/deque.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/lib/Collections-C/src/array.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/lib/Collections-C/src/stack.c"
     )
 
 add_definitions(
+    "-DINDEXING_THREADS=4"
     "-D_DEBUG"
     "-D_CRT_SECURE_NO_WARNINGS")
 

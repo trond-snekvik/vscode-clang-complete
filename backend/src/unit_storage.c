@@ -2,8 +2,10 @@
 #include <clang-c/CXCompilationDatabase.h>
 #include "unit_storage.h"
 #include "hashtable.h"
+#include "queue.h"
 #include "path.h"
 #include "log.h"
+#include "json_rpc.h"
 #include "unsaved_files.h"
 
 typedef struct
@@ -19,15 +21,75 @@ typedef struct
     HashTable * p_directories;
 } unit_storage_t;
 
+typedef struct
+{
+    Queue * p_queue;
+    mutex_t mut;
+} index_thread_context_t;
 
 static compile_flags_t m_base_flags;
 static unit_storage_t m_storage;
+
 
 void unit_storage_init(const compile_flags_t * p_base_flags)
 {
     ASSERT(hashtable_new(&m_storage.p_table) == CC_OK);
     ASSERT(hashtable_new(&m_storage.p_directories) == CC_OK);
     compile_flags_clone(&m_base_flags, p_base_flags);
+}
+
+static void index_thread(void * p_args)
+{
+    index_thread_context_t * p_context = p_args;
+
+    while (true)
+    {
+        unit_t * p_unit;
+
+        mutex_take(&p_context->mut);
+        bool has_value = (queue_poll(p_context->p_queue, &p_unit) == CC_OK);
+        mutex_release(&p_context->mut);
+
+        if (has_value)
+        {
+            json_rpc_suspend();
+            const unsaved_files_t * p_unsaved_files = unsaved_files_get();
+
+            if (!p_unit->active)
+            {
+                unit_index(p_unit, p_unsaved_files->p_list, p_unsaved_files->count);
+            }
+
+            unsaved_files_release();
+            json_rpc_resume();
+        }
+        else
+        {
+            break;
+        }
+    }
+}
+
+static void index_monitor_thread(void * p_args)
+{
+    index_thread_context_t * p_context = p_args;
+
+    thread_t * p_threads[INDEXING_THREADS];
+
+    for (unsigned i = 0; i < INDEXING_THREADS; ++i)
+    {
+        p_threads[i] = thread_start(index_thread, p_context, THREAD_PRIO_LOW);
+    }
+
+    for (unsigned i = 0; i < INDEXING_THREADS; ++i)
+    {
+        thread_join(p_threads[i]);
+    }
+    LOG("Indexing complete.\n");
+
+    mutex_free(&p_context->mut);
+    queue_destroy(p_context->p_queue);
+    FREE(p_context);
 }
 
 bool unit_storage_compilation_database_load(const char * p_directory)
@@ -39,6 +101,11 @@ bool unit_storage_compilation_database_load(const char * p_directory)
         CXCompileCommands commands = clang_CompilationDatabase_getAllCompileCommands(db);
         size_t command_count = clang_CompileCommands_getSize(commands);
         LOG("Found %u commands in %s\n", command_count, p_directory);
+
+        index_thread_context_t  * p_context = MALLOC(sizeof(index_thread_context_t));
+        mutex_init(&p_context->mut);
+        ASSERT(queue_new(&p_context->p_queue) == CC_OK);
+
         for (size_t i = 0; i < command_count; ++i)
         {
             CXCompileCommand command = clang_CompileCommands_getCommand(commands, i);
@@ -93,17 +160,14 @@ bool unit_storage_compilation_database_load(const char * p_directory)
                 }
 
                 compile_flags_print(&flags);
-
                 unit_t * p_unit = unit_create(p_filename, &flags);
 
                 if (p_unit)
                 {
-                    const unsaved_files_t * p_unsaved_files = unsaved_files_get();
-                    unit_index(p_unit, p_unsaved_files->p_list, p_unsaved_files->count);
-
+                    queue_enqueue(p_context->p_queue, p_unit);
+                    // unit_index(p_unit, p_unsaved_files->p_list, p_unsaved_files->count);
                     unit_storage_add(p_unit);
                 }
-
                 // remember directory
                 char * p_directory = path_directory(p_filename);
                 ASSERT(p_directory);
@@ -128,6 +192,8 @@ bool unit_storage_compilation_database_load(const char * p_directory)
             clang_disposeString(filename);
             clang_disposeString(directory);
         }
+
+        thread_start(index_monitor_thread, p_context, THREAD_PRIO_NORMAL);
     }
     else
     {
