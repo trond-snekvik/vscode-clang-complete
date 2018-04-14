@@ -450,6 +450,51 @@ static void clear_index_decls(unit_t * p_unit)
     }
 }
 
+static bool index_source_file(unit_t * p_unit,
+                              struct CXUnsavedFile * p_unsaved_files,
+                              uint32_t unsaved_file_count,
+                              bool keep_tu)
+{
+    mutex_take(&p_unit->decl_mutex);
+    DWORD start_timer = GetTickCount();
+    IndexerCallbacks callbacks = {
+        .enteredMainFile = index_entered_mainfile,
+        .indexDeclaration = index_declaration
+    };
+    index_context_t context = {
+        .p_unit = p_unit
+    };
+
+    bool success = (clang_indexSourceFile(m_index_action,
+                                          &context,
+                                          &callbacks,
+                                          sizeof(callbacks),
+                                          INDEX_OPTIONS,
+                                          p_unit->p_filename,
+                                          p_unit->flags.pp_array,
+                                          p_unit->flags.count,
+                                          p_unsaved_files,
+                                          unsaved_file_count,
+                                          keep_tu ? &p_unit->tu : NULL,
+                                          TRANSLATION_UNIT_PARSE_OPTIONS)
+                    == CXError_Success);
+
+    if (keep_tu)
+    {
+        p_unit->active = success;
+    }
+    if (!success)
+    {
+        LOG("Indexing failed\n");
+    }
+
+    DWORD end_timer = GetTickCount();
+    LOG("Index %s: %ums\n", p_unit->p_filename, end_timer - start_timer);
+
+    mutex_release(&p_unit->decl_mutex);
+    return success;
+}
+
 void unit_init(const unit_config_t * p_config)
 {
     m_index = clang_createIndex(true, false);
@@ -475,16 +520,47 @@ unit_t * unit_create(const char * p_filename,
     p_unit->active = false;
     p_unit->p_fixits = NULL;
     p_unit->fixit_count = 0;
+    mutex_init(&p_unit->decl_mutex);
+    mutex_init(&p_unit->mutex);
     ASSERT(hashtable_new(&p_unit->diag_files) == CC_OK);
     ASSERT(array_new(&p_unit->p_declarations) == CC_OK);
     LOG("Added unit %s\n", p_unit->p_filename);
     return p_unit;
 }
 
+typedef struct
+{
+    unit_t * p_unit;
+    struct CXUnsavedFile * p_unsaved_files;
+    uint32_t unsaved_file_count;
+} index_thread_context_t;
+
+static void index_thread(void * p_args)
+{
+    index_thread_context_t * p_context = p_args;
+    index_source_file(p_context->p_unit, p_context->p_unsaved_files, p_context->unsaved_file_count, false);
+    FREE(p_context);
+}
+
 void unit_index(unit_t * p_unit,
                 struct CXUnsavedFile * p_unsaved_files,
                 uint32_t unsaved_file_count)
 {
+#if MULTITHREAD_INDEXING
+    index_thread_context_t * p_context = MALLOC(sizeof(index_thread_context_t));
+    p_context->p_unit = p_unit;
+    p_context->p_unsaved_files = p_unsaved_files;
+    p_context->unsaved_file_count = unsaved_file_count;
+    p_unit->p_index_thread = thread_start(index_thread, p_context);
+#else
+    index_source_file(p_unit, p_unsaved_files, unsaved_file_count, false);
+#endif
+}
+
+static void index_translation_unit(unit_t * p_unit)
+{
+    mutex_take(&p_unit->decl_mutex);
+
     DWORD start_timer = GetTickCount();
     IndexerCallbacks callbacks = {
         .enteredMainFile = index_entered_mainfile,
@@ -493,21 +569,12 @@ void unit_index(unit_t * p_unit,
     index_context_t context = {
         .p_unit = p_unit
     };
+    clang_indexTranslationUnit(m_index_action, &context, &callbacks, sizeof(callbacks), INDEX_OPTIONS, p_unit->tu);
 
-    clang_indexSourceFile(m_index_action,
-                          &context,
-                          &callbacks,
-                          sizeof(callbacks),
-                          CXIndexOpt_SuppressRedundantRefs | CXIndexOpt_SuppressWarnings,
-                          p_unit->p_filename,
-                          p_unit->flags.pp_array,
-                          p_unit->flags.count,
-                          p_unsaved_files,
-                          unsaved_file_count,
-                          NULL,
-                          INDEX_TRANSLATION_UNIT_OPTIONS);
     DWORD end_timer = GetTickCount();
     LOG("Index: %ums\n", end_timer - start_timer);
+
+    mutex_release(&p_unit->decl_mutex);
 }
 
 bool unit_parse(unit_t * p_unit,
@@ -515,6 +582,7 @@ bool unit_parse(unit_t * p_unit,
                 uint32_t unsaved_file_count)
 {
     ASSERT(!p_unit->active);
+#if 1
     p_unit->active = (clang_parseTranslationUnit2(m_index,
                                                   p_unit->p_filename,
                                                   p_unit->flags.pp_array,
@@ -523,7 +591,14 @@ bool unit_parse(unit_t * p_unit,
                                                   unsaved_file_count,
                                                   TRANSLATION_UNIT_PARSE_OPTIONS,
                                                   &p_unit->tu) == CXError_Success);
+    if (p_unit->active)
+    {
+        index_translation_unit(p_unit);
+    }
     return p_unit->active;
+#else
+    return index_source_file(p_unit, p_unsaved_files, unsaved_file_count, true);
+#endif
 }
 
 void unit_free(unit_t * p_unit)
@@ -553,18 +628,7 @@ bool unit_reparse(unit_t * p_unit,
                                          TRANSLATION_UNIT_REPARSE_OPTIONS);
     if (status == CXError_Success)
     {
-        DWORD start_timer = GetTickCount();
-        IndexerCallbacks callbacks = {
-            .enteredMainFile = index_entered_mainfile,
-            .indexDeclaration = index_declaration
-        };
-        index_context_t context = {
-            .p_unit = p_unit
-        };
-        clang_indexTranslationUnit(m_index_action, &context, &callbacks, sizeof(callbacks), INDEX_OPTIONS, p_unit->tu);
-
-        DWORD end_timer = GetTickCount();
-        LOG("Index: %ums\n", end_timer - start_timer);
+        index_translation_unit(p_unit);
     }
     else
     {
@@ -1066,6 +1130,8 @@ void unit_definition_get(unit_t *p_unit,
         {
             CXString USR = clang_getCursorUSR(definition_cursor);
             LOG("Got reference cursor for %s\n", clang_getCString(USR));
+
+            mutex_take(&m_decl_index.mut);
             Array * p_results = index_decls_get(&m_decl_index, clang_getCString(USR));
             bool found_def = false;
             if (p_results)
@@ -1079,6 +1145,8 @@ void unit_definition_get(unit_t *p_unit,
                     callback(&p_decl->location, 0, p_args, DEFINITION_TYPE_DEFINITION);
                 }
             }
+            mutex_release(&m_decl_index.mut);
+
             clang_disposeString(USR);
             if (found_def)
             {

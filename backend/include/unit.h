@@ -35,6 +35,11 @@ typedef struct
 
     fixit_t * p_fixits;
     unsigned fixit_count;
+
+    mutex_t mutex;
+    mutex_t decl_mutex;
+    thread_t * p_index_thread;
+
     Array * p_declarations;
     Array * p_references;
 } unit_t;
