@@ -45,8 +45,9 @@ static struct
 static bool m_running;
 static json_rpc_request_id_t m_request_id;
 static unsigned m_responses_sent;
+static shared_resource_t m_resource;
 
-static void send(json_t * p_message)
+static void send_message(json_t * p_message)
 {
     const char * p_value = json_dumps(p_message, 0);
     char header_buf[128];
@@ -120,7 +121,10 @@ static void handle_incoming(json_t * p_root)
                         if (p_handler)
                         {
                             unsigned responses_before = m_responses_sent;
+                            shared_resource_lock(&m_resource);
                             p_handler->callback(p_handler->p_method, p_params, p_response);
+                            shared_resource_unlock(&m_resource);
+
                             if (p_id)
                             {
                                 // Must send exactly one response to a message with an ID
@@ -224,6 +228,7 @@ static void handle_incoming(json_t * p_root)
 
 void json_rpc_init(void)
 {
+    shared_resource_init(&m_resource);
 }
 
 void json_rpc_request_handler_add(const char * p_method, json_rpc_request_handler_t request_handler)
@@ -256,7 +261,7 @@ void json_rpc_response_send(json_t * p_response, json_t * p_result)
     ASSERT(p_result);
     json_object_set_new(p_response, "result", p_result);
     LOG("Sent response: %s\n", json_dumps(p_response, 0));
-    send(p_response);
+    send_message(p_response);
     m_responses_sent++;
 }
 
@@ -275,7 +280,7 @@ void json_rpc_error_response_send(json_t * p_response, int code, const char * p_
         json_object_set_new(p_error, "data", p_data);
     }
     json_object_set_new(p_response, "error", p_error);
-    send(p_response);
+    send_message(p_response);
     m_responses_sent++;
 }
 
@@ -310,7 +315,7 @@ json_rpc_request_id_t json_rpc_request_send(const char * p_method, json_t * p_pa
         json_object_set_new(p_request, "params", p_params);
     }
 
-    send(p_request);
+    send_message(p_request);
     json_decref(p_request);
     return m_request_id++;
 }
@@ -326,7 +331,7 @@ void json_rpc_notification_send(const char * p_method, json_t * p_params)
         json_object_set_new(p_notification, "params", p_params);
     }
 
-    send(p_notification);
+    send_message(p_notification);
     json_decref(p_notification);
 }
 
@@ -384,4 +389,14 @@ void json_rpc_listen(FILE * stream)
 void json_rpc_stop(void)
 {
     m_running = false;
+}
+
+void json_rpc_suspend(void)
+{
+    shared_resource_borrow(&m_resource);
+}
+
+void json_rpc_resume(void)
+{
+    shared_resource_release(&m_resource);
 }

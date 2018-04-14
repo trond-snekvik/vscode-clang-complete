@@ -49,3 +49,6 @@ void json_rpc_notification_send(const char * p_method, json_t * p_params);
 
 void json_rpc_listen(FILE * stream);
 void json_rpc_stop(void);
+
+void json_rpc_suspend(void);
+void json_rpc_resume(void);
