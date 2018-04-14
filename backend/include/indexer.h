@@ -14,6 +14,7 @@ typedef struct
 typedef struct
 {
     HashTable * p_table;
+    mutex_t mut;
 } index_t;
 
 
