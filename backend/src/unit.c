@@ -766,6 +766,7 @@ static bool is_include_statement(unit_t * p_unit,
 
             is_match = (strcmp(clang_getCString(string_hash), "#") == 0 &&
                         (strcmp(clang_getCString(string_include), "include") == 0 ||
+                         strcmp(clang_getCString(string_include), "import") == 0 ||
                          strcmp(clang_getCString(string_include), "include_next") == 0) &&
                         (clang_getCString(string_filename)[0] == '"' ||
                          clang_getCString(string_filename)[0] == '<'));
