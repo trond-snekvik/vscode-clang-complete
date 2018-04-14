@@ -73,8 +73,6 @@ static unit_t * add_unit(const char * p_path)
     unit_t *p_unit = unit_create(p_path,
                                  p_flags);
     ASSERT(p_unit);
-    const unsaved_files_t * p_unsaved_files = unsaved_files_get();
-    unit_index(p_unit, p_unsaved_files->p_list, p_unsaved_files->count);
     unit_storage_add(p_unit);
     return p_unit;
 }
@@ -100,8 +98,10 @@ static unit_t * get_or_create_unit(const char * p_filename)
             LOG("Failed parsing unit\n");
             compile_flags_print(&p_unit->flags);
             unit_storage_remove(p_unit->p_filename);
+            unsaved_files_release();
             return NULL;
         }
+        unsaved_files_release();
     }
     mp_current_unit = p_unit;
     return p_unit;
@@ -238,6 +238,7 @@ static void handle_notification_text_document_did_change(const did_change_text_d
             {
                 retries++;
             }
+            unsaved_files_release();
 
             if (retries == REPARSE_RETRIES_MAX)
             {
@@ -281,6 +282,8 @@ static void handle_request_text_document_completion(const text_document_position
             json_t * p_response_params = json_array();
             const unsaved_files_t * p_unsaved_files = unsaved_files_get();
             bool complete = unit_code_completion(p_unit, p_params, p_unsaved_files->p_list, p_unsaved_files->count, completion_callback, p_response_params);
+            unsaved_files_release();
+
             LOG("Code completion successful (%u results%s)\n", json_array_size(p_response_params), complete ? "" : ", incomplete");
             if (complete)
             {
