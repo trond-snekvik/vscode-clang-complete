@@ -54,6 +54,7 @@ static unit_config_t m_config;
 static unit_diagnostics_callback_t m_diagnostics_callback;
 static index_t m_decl_index;
 static CXIndexAction m_index_action;
+static CXIndexAction m_index_action_tu;
 
 static bool position_equal(const position_t * p_pos1, const position_t * p_pos2)
 {
@@ -583,6 +584,7 @@ void unit_init(const unit_config_t * p_config)
     m_config = *p_config;
     index_init(&m_decl_index);
     m_index_action = clang_IndexAction_create(m_index);
+    m_index_action_tu = clang_IndexAction_create(m_index);
 }
 
 void unit_diagnostics_callback_set(unit_diagnostics_callback_t callback)
@@ -650,7 +652,7 @@ static void index_translation_unit(unit_t * p_unit)
     index_context_t context = {
         .p_unit = p_unit
     };
-    clang_indexTranslationUnit(m_index_action, &context, &callbacks, sizeof(callbacks), INDEX_OPTIONS, p_unit->tu);
+    clang_indexTranslationUnit(m_index_action_tu, &context, &callbacks, sizeof(callbacks), INDEX_OPTIONS, p_unit->tu);
 
     DWORD end_timer = GetTickCount();
     LOG("Index: %ums\n", end_timer - start_timer);
