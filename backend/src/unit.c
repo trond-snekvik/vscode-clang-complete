@@ -607,6 +607,7 @@ unit_t * unit_create(const char * p_filename,
     mutex_init(&p_unit->mutex);
     ASSERT(hashtable_new(&p_unit->diag_files) == CC_OK);
     ASSERT(array_new(&p_unit->p_declarations) == CC_OK);
+    ASSERT(hashtable_new(&p_unit->p_included_files) == CC_OK);
     LOG("Added unit %s\n", p_unit->p_filename);
     return p_unit;
 }
