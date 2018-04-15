@@ -3,6 +3,7 @@ project (Clang-Backend C)
 set (EXECUTABLE "backend")
 
 set(RUNTIME_OUTPUT_DIRECTORY ../lib)
+option(CMAKE_BUILD_TYPE "Build type" Debug)
 
 if (WIN32)
     set(platform "win32")
@@ -64,10 +65,12 @@ add_executable(${EXECUTABLE}
     "${CMAKE_CURRENT_SOURCE_DIR}/lib/Collections-C/src/stack.c"
     )
 
-add_definitions(
-    "-DINDEXING_THREADS=4"
-    "-D_DEBUG"
-    "-D_CRT_SECURE_NO_WARNINGS")
+add_definitions("-D_CRT_SECURE_NO_WARNINGS"
+                "-DINDEXING_THREADS=4")
+
+if (${CMAKE_BUILD_TYPE} EQUAL "Debug")
+    add_definitions("-D_DEBUG")
+endif()
 
 target_link_libraries(${EXECUTABLE} PRIVATE
     ${LIBCLANG}

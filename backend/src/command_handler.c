@@ -129,11 +129,18 @@ static void handle_request_initialize(const initialize_params_t * p_params, json
     {
         if ((p_params->initialization_options.valid_fields & INITIALIZATION_OPTIONS_FIELD_FLAGS) && p_params->initialization_options.flags_count > 0)
         {
-            m_flags.count = p_params->initialization_options.flags_count;
+            m_flags.count = ARRAY_SIZE(m_base_flags) + p_params->initialization_options.flags_count;
             m_flags.pp_array = MALLOC(sizeof(char * ) * m_flags.count);
-            for (unsigned i = 0; i < m_flags.count; ++i)
+
+            for (unsigned i = 0; i < ARRAY_SIZE(m_base_flags); ++i)
             {
-                m_flags.pp_array[i] = STRDUP(p_params->initialization_options.p_flags[i]);
+                m_flags.pp_array[i] = STRDUP(m_base_flags[i]);
+            }
+
+            for (unsigned i = 0; i < p_params->initialization_options.flags_count; ++i)
+            {
+                m_flags.pp_array[ARRAY_SIZE(m_base_flags) + i] =
+                    STRDUP(p_params->initialization_options.p_flags[i]);
             }
             LOG("Got %u flags from extension.\n", m_flags.count);
         }
