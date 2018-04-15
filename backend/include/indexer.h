@@ -14,7 +14,6 @@ typedef struct
     const char * p_USR;
     char * p_name;
     location_t location;
-    unit_t * p_unit;
     index_scope_t scope;
     symbol_kind_t kind;
 } index_declaration_t;
@@ -34,3 +33,6 @@ Array * index_decls_get(index_t * p_index, const char * p_USR);
 void index_decl_remove(index_t * p_index, const char * p_USR, index_declaration_t * p_decl);
 
 void index_decl_free(index_declaration_t * p_decl);
+
+bool index_save(index_t * p_index, const char * p_location, time_t timestamp);
+bool index_load(index_t * p_index, const char * p_location, time_t * p_timestamp); 
