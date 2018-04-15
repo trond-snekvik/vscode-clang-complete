@@ -38,10 +38,10 @@ typedef struct
 
     mutex_t mutex;
     mutex_t decl_mutex;
-    thread_t * p_index_thread;
 
     Array * p_declarations;
     Array * p_references;
+    HashTable * p_included_files;
 } unit_t;
 
 typedef struct
