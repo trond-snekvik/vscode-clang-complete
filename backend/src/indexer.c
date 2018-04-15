@@ -80,5 +80,6 @@ void index_decl_remove(index_t * p_index, const char * p_USR, index_declaration_
 void index_decl_free(index_declaration_t * p_decl)
 {
     uri_free_members(&p_decl->location.uri);
+    FREE(p_decl->p_name);
     FREE(p_decl);
 }
