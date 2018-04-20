@@ -222,9 +222,51 @@ static bool diagnostic_parse(CXDiagnostic clang_diag, diagnostic_t * p_diagnosti
 
     p_diagnostic->severity = get_diagnostic_severity(s);
     p_diagnostic->code = clang_getDiagnosticCategory(clang_diag);
-    p_diagnostic->source = "Clang";
+    p_diagnostic->source = STRDUP("Clang");
     p_diagnostic->message = STRDUP(clang_getCString(diagstring));
-    p_diagnostic->valid_fields = DIAGNOSTIC_FIELD_ALL;
+    p_diagnostic->valid_fields = DIAGNOSTIC_FIELD_CODE | DIAGNOSTIC_FIELD_MESSAGE | DIAGNOSTIC_FIELD_RANGE | DIAGNOSTIC_FIELD_SEVERITY | DIAGNOSTIC_FIELD_SOURCE;
+
+    CXDiagnosticSet child_diags = clang_getChildDiagnostics(clang_diag);
+    p_diagnostic->related_information_count = clang_getNumDiagnosticsInSet(child_diags);
+    if (p_diagnostic->related_information_count > 0)
+    {
+        p_diagnostic->p_related_information = MALLOC(sizeof(diagnostic_related_information_t) * p_diagnostic->related_information_count);
+        
+        for (unsigned i = 0; i < p_diagnostic->related_information_count; ++i)
+        {
+            CXDiagnostic child_diag = clang_getDiagnosticInSet(child_diags, i);
+            CXString child_diagstring = clang_getDiagnosticSpelling(child_diag);
+            CXSourceLocation child_location = clang_getDiagnosticLocation(child_diag);
+            CXFile child_file;
+            unsigned child_line;
+            unsigned child_character;
+            clang_getSpellingLocation(child_location,
+                                      &child_file,
+                                      &child_line,
+                                      &child_character,
+                                      NULL);
+            CXString child_filename = clang_getFileName(child_file);
+            p_diagnostic->p_related_information[i].location.uri = uri_file(clang_getCString(child_filename));
+            p_diagnostic->p_related_information[i].location.range.start.line = (child_line > 0 ? child_line - 1 : 0); // with invalid files, line will be 0
+            p_diagnostic->p_related_information[i].location.range.start.character = child_character;
+            p_diagnostic->p_related_information[i].location.range.start.valid_fields = POSITION_FIELD_ALL;
+            p_diagnostic->p_related_information[i].location.range.end = p_diagnostic->p_related_information[i].location.range.start;
+            p_diagnostic->p_related_information[i].location.range.valid_fields = RANGE_FIELD_ALL;
+            p_diagnostic->p_related_information[i].location.valid_fields = LOCATION_FIELD_ALL;
+            p_diagnostic->p_related_information[i].message = STRDUP(clang_getCString(child_diagstring));
+            p_diagnostic->p_related_information[i].valid_fields = DIAGNOSTIC_FIELD_ALL;
+            clang_disposeString(child_filename);
+            clang_disposeString(child_diagstring);
+            clang_disposeDiagnostic(child_diag);
+        }
+        p_diagnostic->valid_fields |= DIAGNOSTIC_FIELD_RELATED_INFORMATION;
+    }
+    else
+    {
+        p_diagnostic->p_related_information = NULL;
+    }
+    clang_disposeDiagnosticSet(child_diags);
+
     clang_disposeString(diagstring);
     return true;
 }
@@ -1484,7 +1526,7 @@ unsigned unit_diagnostics_get(unit_t *p_unit,
 
             for (unsigned j = 0; j < p_file->diag_count; ++j)
             {
-                FREE(p_file->diagnostics[j].message);
+                free_diagnostic(p_file->diagnostics[j]);
             }
             p_file->diag_count = 0;
         }

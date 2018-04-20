@@ -457,6 +457,38 @@ json_t * encode_text_edit(text_edit_t value)
     return p_json;
 }
 
+json_t * encode_location(location_t value)
+{
+    json_t * p_json = json_object();
+
+    if (value.valid_fields & LOCATION_FIELD_URI)
+    {
+        json_object_set_new(p_json, "uri", encode_uri(value.uri));
+    }
+
+    if (value.valid_fields & LOCATION_FIELD_RANGE)
+    {
+        json_object_set_new(p_json, "range", encode_range(value.range));
+    }
+    return p_json;
+}
+
+json_t * encode_diagnostic_related_information(diagnostic_related_information_t value)
+{
+    json_t * p_json = json_object();
+
+    if (value.valid_fields & DIAGNOSTIC_RELATED_INFORMATION_FIELD_LOCATION)
+    {
+        json_object_set_new(p_json, "location", encode_location(value.location));
+    }
+
+    if (value.valid_fields & DIAGNOSTIC_RELATED_INFORMATION_FIELD_MESSAGE)
+    {
+        json_object_set_new(p_json, "message", encode_string(value.message));
+    }
+    return p_json;
+}
+
 json_t * encode_diagnostic(diagnostic_t value)
 {
     json_t * p_json = json_object();
@@ -485,21 +517,15 @@ json_t * encode_diagnostic(diagnostic_t value)
     {
         json_object_set_new(p_json, "message", encode_string(value.message));
     }
-    return p_json;
-}
 
-json_t * encode_location(location_t value)
-{
-    json_t * p_json = json_object();
-
-    if (value.valid_fields & LOCATION_FIELD_URI)
+    if (value.valid_fields & DIAGNOSTIC_FIELD_RELATED_INFORMATION)
     {
-        json_object_set_new(p_json, "uri", encode_uri(value.uri));
-    }
-
-    if (value.valid_fields & LOCATION_FIELD_RANGE)
-    {
-        json_object_set_new(p_json, "range", encode_range(value.range));
+        json_t * p_related_information_json = json_array();
+        for (uint32_t i = 0; i < value.related_information_count; ++i)
+        {
+            json_array_append_new(p_related_information_json, encode_diagnostic_related_information(value.p_related_information[i]));
+        }
+        json_object_set_new(p_json, "relatedInformation", p_related_information_json);
     }
     return p_json;
 }

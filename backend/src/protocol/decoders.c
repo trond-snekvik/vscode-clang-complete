@@ -765,6 +765,62 @@ text_edit_t decode_text_edit(json_t * p_json)
     return retval;
 }
 
+location_t decode_location(json_t * p_json)
+{
+    location_t retval;
+    memset(&retval, 0, sizeof(retval));
+
+    json_t * p_uri_json = json_object_get(p_json, "uri");
+    if (json_is_string(p_uri_json))
+    {
+        retval.uri = decode_uri(p_uri_json);
+        retval.valid_fields |= LOCATION_FIELD_URI;
+    }
+
+    json_t * p_range_json = json_object_get(p_json, "range");
+    if (json_is_object(p_range_json))
+    {
+        retval.range = decode_range(p_range_json);
+        retval.valid_fields |= LOCATION_FIELD_RANGE;
+    }
+
+
+    if ((retval.valid_fields & LOCATION_FIELD_REQUIRED) != LOCATION_FIELD_REQUIRED)
+    {
+        m_error = DECODER_ERROR_MISSING_REQUIRED_FIELDS;
+        LOG("Missing required parameters for location: Got 0x%x, expected 0x%x\n", retval.valid_fields, LOCATION_FIELD_REQUIRED);
+    }
+    return retval;
+}
+
+diagnostic_related_information_t decode_diagnostic_related_information(json_t * p_json)
+{
+    diagnostic_related_information_t retval;
+    memset(&retval, 0, sizeof(retval));
+
+    json_t * p_location_json = json_object_get(p_json, "location");
+    if (json_is_object(p_location_json))
+    {
+        retval.location = decode_location(p_location_json);
+        retval.valid_fields |= DIAGNOSTIC_RELATED_INFORMATION_FIELD_LOCATION;
+    }
+
+    json_t * p_message_json = json_object_get(p_json, "message");
+    if (json_is_string(p_message_json))
+    {
+        retval.message = decode_string(p_message_json);
+        retval.valid_fields |= DIAGNOSTIC_RELATED_INFORMATION_FIELD_MESSAGE;
+    }
+
+
+    if ((retval.valid_fields & DIAGNOSTIC_RELATED_INFORMATION_FIELD_REQUIRED) != DIAGNOSTIC_RELATED_INFORMATION_FIELD_REQUIRED)
+    {
+        m_error = DECODER_ERROR_MISSING_REQUIRED_FIELDS;
+        LOG("Missing required parameters for diagnostic_related_information: Got 0x%x, expected 0x%x\n", retval.valid_fields, DIAGNOSTIC_RELATED_INFORMATION_FIELD_REQUIRED);
+    }
+    return retval;
+}
+
 diagnostic_t decode_diagnostic(json_t * p_json)
 {
     diagnostic_t retval;
@@ -805,39 +861,26 @@ diagnostic_t decode_diagnostic(json_t * p_json)
         retval.valid_fields |= DIAGNOSTIC_FIELD_MESSAGE;
     }
 
+    json_t * p_related_information_json = json_object_get(p_json, "relatedInformation");
+    if (json_is_array(p_related_information_json))
+    {
+        retval.related_information_count = json_array_size(p_related_information_json);
+        retval.p_related_information = malloc(sizeof(diagnostic_related_information_t) * retval.related_information_count);
+        ASSERT(retval.p_related_information);
+        json_t * p_it;
+        uint32_t index;
+        json_array_foreach(p_related_information_json, index, p_it)
+        {
+            retval.p_related_information[index] = decode_diagnostic_related_information(p_it);
+        }
+        retval.valid_fields |= DIAGNOSTIC_FIELD_RELATED_INFORMATION;
+    }
+
 
     if ((retval.valid_fields & DIAGNOSTIC_FIELD_REQUIRED) != DIAGNOSTIC_FIELD_REQUIRED)
     {
         m_error = DECODER_ERROR_MISSING_REQUIRED_FIELDS;
         LOG("Missing required parameters for diagnostic: Got 0x%x, expected 0x%x\n", retval.valid_fields, DIAGNOSTIC_FIELD_REQUIRED);
-    }
-    return retval;
-}
-
-location_t decode_location(json_t * p_json)
-{
-    location_t retval;
-    memset(&retval, 0, sizeof(retval));
-
-    json_t * p_uri_json = json_object_get(p_json, "uri");
-    if (json_is_string(p_uri_json))
-    {
-        retval.uri = decode_uri(p_uri_json);
-        retval.valid_fields |= LOCATION_FIELD_URI;
-    }
-
-    json_t * p_range_json = json_object_get(p_json, "range");
-    if (json_is_object(p_range_json))
-    {
-        retval.range = decode_range(p_range_json);
-        retval.valid_fields |= LOCATION_FIELD_RANGE;
-    }
-
-
-    if ((retval.valid_fields & LOCATION_FIELD_REQUIRED) != LOCATION_FIELD_REQUIRED)
-    {
-        m_error = DECODER_ERROR_MISSING_REQUIRED_FIELDS;
-        LOG("Missing required parameters for location: Got 0x%x, expected 0x%x\n", retval.valid_fields, LOCATION_FIELD_REQUIRED);
     }
     return retval;
 }
@@ -2094,17 +2137,28 @@ void free_text_edit(text_edit_t value)
     free_string(value.new_text);
 }
 
+void free_location(location_t value)
+{
+    free_uri(value.uri);
+    free_range(value.range);
+}
+
+void free_diagnostic_related_information(diagnostic_related_information_t value)
+{
+    free_location(value.location);
+    free_string(value.message);
+}
+
 void free_diagnostic(diagnostic_t value)
 {
     free_range(value.range);
     free_string(value.source);
     free_string(value.message);
-}
-
-void free_location(location_t value)
-{
-    free_uri(value.uri);
-    free_range(value.range);
+    for (uint32_t i = 0; i < value.related_information_count; ++i)
+    {
+        free_diagnostic_related_information(value.p_related_information[i]);
+    }
+    free(value.p_related_information);
 }
 
 void free_text_document_item(text_document_item_t value)

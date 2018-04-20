@@ -204,23 +204,32 @@
             "required": ["range", "new_text"]
         },
         {
-            "name": "diagnostic",
-            "members": {
-                "range": "range",
-                "severity": "diagnostic_severity",
-                "code": "number",
-                "source": "string",
-                "message": "string"
-            },
-            "required": ["range", "message"]
-        },
-        {
             "name": "location",
             "members": {
                 "uri": "uri",
                 "range": "range"
             },
             "required": ["uri", "range"]
+        },
+        {
+            "name": "diagnostic_related_information",
+            "members": {
+                "location": "location",
+                "message": "string"
+            },
+            "required": ["location", "message"]
+        },
+        {
+            "name": "diagnostic",
+            "members": {
+                "range": "range",
+                "severity": "diagnostic_severity",
+                "code": "number",
+                "source": "string",
+                "message": "string",
+                "related_information": "diagnostic_related_information[]"
+            },
+            "required": ["range", "message"]
         },
         {
             "name": "text_document_item",

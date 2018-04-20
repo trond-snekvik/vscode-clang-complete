@@ -177,24 +177,34 @@ typedef enum
 
 typedef enum
 {
-    DIAGNOSTIC_FIELD_RANGE    = (1 << 0),
-    DIAGNOSTIC_FIELD_SEVERITY = (1 << 1),
-    DIAGNOSTIC_FIELD_CODE     = (1 << 2),
-    DIAGNOSTIC_FIELD_SOURCE   = (1 << 3),
-    DIAGNOSTIC_FIELD_MESSAGE  = (1 << 4),
-
-    DIAGNOSTIC_FIELD_ALL = (0x1f),
-    DIAGNOSTIC_FIELD_REQUIRED = (DIAGNOSTIC_FIELD_RANGE | DIAGNOSTIC_FIELD_MESSAGE)
-} diagnostic_fields_t;
-
-typedef enum
-{
     LOCATION_FIELD_URI   = (1 << 0),
     LOCATION_FIELD_RANGE = (1 << 1),
 
     LOCATION_FIELD_ALL = (0x3),
     LOCATION_FIELD_REQUIRED = (LOCATION_FIELD_ALL)
 } location_fields_t;
+
+typedef enum
+{
+    DIAGNOSTIC_RELATED_INFORMATION_FIELD_LOCATION = (1 << 0),
+    DIAGNOSTIC_RELATED_INFORMATION_FIELD_MESSAGE  = (1 << 1),
+
+    DIAGNOSTIC_RELATED_INFORMATION_FIELD_ALL = (0x3),
+    DIAGNOSTIC_RELATED_INFORMATION_FIELD_REQUIRED = (DIAGNOSTIC_RELATED_INFORMATION_FIELD_ALL)
+} diagnostic_related_information_fields_t;
+
+typedef enum
+{
+    DIAGNOSTIC_FIELD_RANGE               = (1 << 0),
+    DIAGNOSTIC_FIELD_SEVERITY            = (1 << 1),
+    DIAGNOSTIC_FIELD_CODE                = (1 << 2),
+    DIAGNOSTIC_FIELD_SOURCE              = (1 << 3),
+    DIAGNOSTIC_FIELD_MESSAGE             = (1 << 4),
+    DIAGNOSTIC_FIELD_RELATED_INFORMATION = (1 << 5),
+
+    DIAGNOSTIC_FIELD_ALL = (0x3f),
+    DIAGNOSTIC_FIELD_REQUIRED = (DIAGNOSTIC_FIELD_RANGE | DIAGNOSTIC_FIELD_MESSAGE)
+} diagnostic_fields_t;
 
 typedef enum
 {
@@ -755,6 +765,22 @@ typedef struct
 
 typedef struct
 {
+    location_fields_t valid_fields;
+
+    uri_t uri;
+    range_t range;
+} location_t;
+
+typedef struct
+{
+    diagnostic_related_information_fields_t valid_fields;
+
+    location_t location;
+    char * message;
+} diagnostic_related_information_t;
+
+typedef struct
+{
     diagnostic_fields_t valid_fields;
 
     range_t range;
@@ -762,15 +788,9 @@ typedef struct
     int64_t code;
     char * source;
     char * message;
+    diagnostic_related_information_t * p_related_information;
+    uint32_t related_information_count;
 } diagnostic_t;
-
-typedef struct
-{
-    location_fields_t valid_fields;
-
-    uri_t uri;
-    range_t range;
-} location_t;
 
 typedef struct
 {
