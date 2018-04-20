@@ -771,24 +771,10 @@ bool unit_reparse(unit_t * p_unit,
 }
 
 static bool is_include_statement(unit_t * p_unit,
-                                  const text_document_position_params_t *p_position,
-                                  range_t * p_replace_range)
+                                 CXToken * p_tokens,
+                                 unsigned token_count,
+                                 range_t * p_replace_range)
 {
-    CXFile file = clang_getFile(p_unit->tu, p_position->text_document.uri.path);
-    CXSourceLocation location_cursor = clang_getLocation(p_unit->tu,
-                                                         file,
-                                                         (unsigned) p_position->position.line + 1,
-                                                         (unsigned) p_position->position.character + 1);
-    CXSourceLocation location_start = clang_getLocation(p_unit->tu,
-                                                        file,
-                                                        (unsigned) p_position->position.line + 1, 1);
-    CXSourceRange range = clang_getRange(location_start, location_cursor);
-
-    CXToken *p_tokens = NULL;
-    unsigned token_count = 0;
-
-    clang_tokenize(p_unit->tu, range, &p_tokens, &token_count);
-
     bool is_match = false;
 
     if (token_count >= 3) /* Expecting at least #, include, " or similar */
@@ -850,9 +836,27 @@ static bool is_include_statement(unit_t * p_unit,
         }
 
         FREE(p_cursors);
-        clang_disposeTokens(p_unit->tu, p_tokens, token_count);
     }
     return is_match;
+}
+
+static void tokenize_line(unit_t * p_unit,
+                          const text_document_position_params_t *p_position,
+                          CXToken ** pp_tokens,
+                          unsigned * p_token_count)
+{
+
+    CXFile file = clang_getFile(p_unit->tu, p_position->text_document.uri.path);
+    CXSourceLocation location_cursor = clang_getLocation(p_unit->tu,
+                                                         file,
+                                                         (unsigned) p_position->position.line + 1,
+                                                         (unsigned) p_position->position.character + 1);
+    CXSourceLocation location_start = clang_getLocation(p_unit->tu,
+                                                        file,
+                                                        (unsigned) p_position->position.line + 1, 1);
+    CXSourceRange range = clang_getRange(location_start, location_cursor);
+
+    clang_tokenize(p_unit->tu, range, pp_tokens, p_token_count);
 }
 
 typedef struct
@@ -888,9 +892,12 @@ bool unit_code_completion(unit_t *p_unit,
     ASSERT(callback);
     ASSERT(p_unit->active);
 
-    range_t include_range;
+    CXToken * p_tokens;
+    unsigned token_count;
+    tokenize_line(p_unit, p_position, &p_tokens, &token_count);
 
-    if (is_include_statement(p_unit, p_position, &include_range))
+    range_t include_range;
+    if (is_include_statement(p_unit, p_tokens, token_count, &include_range))
     {
         include_file_completion_callback_context_t context;
         context.callback = callback;
@@ -915,6 +922,20 @@ bool unit_code_completion(unit_t *p_unit,
         return true;
     }
 
+    char * p_start_string = NULL;
+    if (token_count > 0)
+    {
+        CXTokenKind token_kind = clang_getTokenKind(p_tokens[token_count - 1]);
+        if (token_kind == CXToken_Identifier || token_kind == CXToken_Keyword)
+        {
+            CXString clang_string_start = clang_getTokenSpelling(p_unit->tu, p_tokens[token_count - 1]);
+            p_start_string = STRDUP(clang_getCString(clang_string_start));
+            clang_disposeString(clang_string_start);
+            LOG("START STRING: %s\n", p_start_string);
+        }
+    }
+    clang_disposeTokens(p_unit->tu, p_tokens, token_count);
+
     CXCodeCompleteResults * p_results = clang_codeCompleteAt(p_unit->tu,
                                                              p_position->text_document.uri.path,
                                                              (unsigned) p_position->position.line + 1,
@@ -926,7 +947,8 @@ bool unit_code_completion(unit_t *p_unit,
     if (p_results)
     {
         unsigned result_count = p_results->NumResults;
-        for (unsigned i = 0; i < min(result_count, m_config.completion_results_max); ++i)
+        unsigned passed_results = 0;
+        for (unsigned i = 0; i < result_count && passed_results < m_config.completion_results_max; ++i)
         {
             CXCompletionString completion = p_results->Results[i].CompletionString;
 
@@ -999,99 +1021,105 @@ bool unit_code_completion(unit_t *p_unit,
                 clang_disposeString(chunk_string);
             }
 
-            completion_item_t result;
-            result.valid_fields = (COMPLETION_ITEM_FIELD_KIND |
-                                   COMPLETION_ITEM_FIELD_LABEL |
-                                   COMPLETION_ITEM_FIELD_SORT_TEXT |
-                                   COMPLETION_ITEM_FIELD_INSERT_TEXT_FORMAT);
-
-            result.kind = get_kind(p_results->Results[i].CursorKind);
-
-            if (p_typed_text && strcmp(p_typed_text, full_text) != 0)
+            bool filter_pass;
+            if (p_start_string == NULL)
             {
-                result.insert_text = p_typed_text;
-                result.filter_text = p_typed_text;
-                result.valid_fields |= (COMPLETION_ITEM_FIELD_INSERT_TEXT | COMPLETION_ITEM_FIELD_FILTER_TEXT);
+                filter_pass = true;
+            }
+            else if (p_typed_text)
+            {
+                filter_pass = string_fuzzy_match(p_typed_text, p_start_string);
             }
             else
             {
-                result.insert_text = "";
+                filter_pass = string_fuzzy_match(full_text, p_start_string);
             }
 
-            if (p_var_type_text)
+            if (filter_pass)
             {
-                result.detail = p_var_type_text;
-                result.valid_fields |= COMPLETION_ITEM_FIELD_DETAIL;
-            }
+                completion_item_t result;
+                result.valid_fields = (COMPLETION_ITEM_FIELD_KIND |
+                                    COMPLETION_ITEM_FIELD_LABEL |
+                                    COMPLETION_ITEM_FIELD_SORT_TEXT |
+                                    COMPLETION_ITEM_FIELD_INSERT_TEXT_FORMAT);
 
-            result.label = full_text;
+                result.kind = get_kind(p_results->Results[i].CursorKind);
 
-            const char * p_doc = clang_getCString(doc);
-#if 0 // markdown in completion
-            char * p_markdown_doc = doxygen_to_markdown(p_doc, false);
-            if (p_markdown_doc)
-            {
-                result.documentation.kind = MARKUP_KIND_MARKUP;
-                result.documentation.value = p_markdown_doc;
-                result.documentation.valid_fields = MARKUP_CONTENT_FIELD_ALL;
-                result.valid_fields |= COMPLETION_ITEM_FIELD_DOCUMENTATION;
-            }
-#else
-            if (p_doc)
-            {
-                result.documentation.kind = MARKUP_KIND_MARKUP;
-                result.documentation.value = (char *) p_doc;
-                result.documentation.valid_fields = MARKUP_CONTENT_FIELD_ALL;
-                result.valid_fields |= COMPLETION_ITEM_FIELD_DOCUMENTATION;
-            }
-#endif
-
-            /* Make a string of priority + name to get prioritized sorting, e.g. "000071 param" */
-            char * p_sort_text_buf = CALLOC(strlen(result.insert_text) + 8, 1);
-            sprintf(p_sort_text_buf, "%06u %s", priority, result.insert_text);
-            result.sort_text = p_sort_text_buf;
-
-            if (placeholders > 0)
-            {
-                result.insert_text_format = INSERT_TEXT_FORMAT_SNIPPET;
-                if (!p_inserted_text)
+                if (p_typed_text && strcmp(p_typed_text, full_text) != 0)
                 {
-                    result.insert_text = full_text;
-                    result.valid_fields |= COMPLETION_ITEM_FIELD_INSERT_TEXT;
+                    result.insert_text = p_typed_text;
+                    result.filter_text = p_typed_text;
+                    result.valid_fields |= (COMPLETION_ITEM_FIELD_INSERT_TEXT | COMPLETION_ITEM_FIELD_FILTER_TEXT);
                 }
-            }
-            else
-            {
-                result.insert_text_format = INSERT_TEXT_FORMAT_PLAIN_TEXT;
-            }
+                else
+                {
+                    result.insert_text = "";
+                }
 
-#if 0 // this is really annoying if the match isn't perfect
-            char * p_commit_chars_function[] = {"("};
+                if (p_var_type_text)
+                {
+                    result.detail = p_var_type_text;
+                    result.valid_fields |= COMPLETION_ITEM_FIELD_DETAIL;
+                }
 
-            if (result.kind == COMPLETION_ITEM_KIND_FUNCTION)
-            {
-                /* For functions, commit the completion when the user types "(" */
-                result.commit_characters_count = ARRAY_SIZE(p_commit_chars_function);
-                result.p_commit_characters = p_commit_chars_function;
-                result.valid_fields |= COMPLETION_ITEM_FIELD_COMMIT_CHARACTERS;
-            }
+                result.label = full_text;
+
+                const char * p_doc = clang_getCString(doc);
+#if 0 // markdown in completion
+                char * p_markdown_doc = doxygen_to_markdown(p_doc, false);
+                if (p_markdown_doc)
+                {
+                    result.documentation.kind = MARKUP_KIND_MARKUP;
+                    result.documentation.value = p_markdown_doc;
+                    result.documentation.valid_fields = MARKUP_CONTENT_FIELD_ALL;
+                    result.valid_fields |= COMPLETION_ITEM_FIELD_DOCUMENTATION;
+                }
+#else
+                if (p_doc)
+                {
+                    result.documentation.kind = MARKUP_KIND_MARKUP;
+                    result.documentation.value = (char *) p_doc;
+                    result.documentation.valid_fields = MARKUP_CONTENT_FIELD_ALL;
+                    result.valid_fields |= COMPLETION_ITEM_FIELD_DOCUMENTATION;
+                }
 #endif
 
-            callback(&result, result_count, p_args);
+                /* Make a string of priority + name to get prioritized sorting, e.g. "000071 param" */
+                result.sort_text = CALLOC(strlen(result.insert_text) + 8, 1);
+                sprintf(result.sort_text, "%06u %s", priority, result.insert_text);
 
+                if (placeholders > 0)
+                {
+                    result.insert_text_format = INSERT_TEXT_FORMAT_SNIPPET;
+                    if (!p_inserted_text)
+                    {
+                        result.insert_text = full_text;
+                        result.valid_fields |= COMPLETION_ITEM_FIELD_INSERT_TEXT;
+                    }
+                }
+                else
+                {
+                    result.insert_text_format = INSERT_TEXT_FORMAT_PLAIN_TEXT;
+                }
+
+                callback(&result, result_count, p_args);
+                FREE(result.sort_text);
+                passed_results++;
+            }
             // FREE(p_markdown_doc);
             clang_disposeString(doc);
-            FREE(p_sort_text_buf);
             FREE(p_typed_text);
             FREE(p_inserted_text);
             FREE(p_var_type_text);
         }
 
         clang_disposeCodeCompleteResults(p_results);
-        return (result_count <= m_config.completion_results_max);
+        FREE(p_start_string);
+        return (passed_results < m_config.completion_results_max);
     }
     else
     {
+        FREE(p_start_string);
         return true;
     }
 }
