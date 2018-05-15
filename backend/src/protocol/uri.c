@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 #include "utils.h"
+#include "path.h"
 #include "log.h"
 
 #define URI_SCHEME_END "://"
@@ -178,7 +179,7 @@ uri_t uri_file(const char * p_filename)
     uri_t uri;
     memset(&uri, 0, sizeof(uri));
     uri.scheme = STRDUP("file");
-    char * p_path = STRDUP(p_filename);
+    char * p_path = absolute_path(p_filename, path_cwd());
 
     /* Convert backslashes: */
     for (char * c = &p_path[0]; *c != 0; ++c)

@@ -106,16 +106,15 @@ static unit_t * get_or_create_unit(const char * p_filename)
 
     if (!p_unit->active)
     {
-        const unsaved_files_t * p_unsaved_files = unsaved_files_get();
+        unsaved_files_t * p_unsaved_files = unsaved_files_get();
         if (!unit_parse(p_unit, p_unsaved_files->p_list, p_unsaved_files->count))
         {
             LOG("Failed parsing unit\n");
             compile_flags_print(&p_unit->flags);
             unit_storage_remove(p_unit->p_filename);
-            unsaved_files_release();
             return NULL;
         }
-        unsaved_files_release();
+        unsaved_files_release(p_unsaved_files);
     }
     mp_current_unit = p_unit;
     return p_unit;
@@ -129,6 +128,7 @@ static void handle_request_initialize(const initialize_params_t * p_params, json
     {
         if ((p_params->initialization_options.valid_fields & INITIALIZATION_OPTIONS_FIELD_FLAGS) && p_params->initialization_options.flags_count > 0)
         {
+            m_flags.full_argv = false;
             m_flags.count = ARRAY_SIZE(m_base_flags) + p_params->initialization_options.flags_count;
             m_flags.pp_array = MALLOC(sizeof(char * ) * m_flags.count);
 
@@ -149,9 +149,9 @@ static void handle_request_initialize(const initialize_params_t * p_params, json
         {
             for (unsigned i = 0; i < p_params->initialization_options.compilation_database_count; ++i)
             {
-                bool loaded = unit_storage_compilation_database_load(p_params->initialization_options.p_compilation_database[i]);
+                bool loaded = unit_storage_compilation_database_load(&p_params->initialization_options.p_compilation_database[i]);
                 LOG("Loading of compilation database at %s %s.\n",
-                    p_params->initialization_options.p_compilation_database[i],
+                    p_params->initialization_options.p_compilation_database[i].path,
                     loaded ? "was successful" : "FAILED");
             }
         }
@@ -256,13 +256,13 @@ static void handle_notification_text_document_did_change(const did_change_text_d
         {
             LOG("\tFound file.\n");
 
-            const unsaved_files_t * p_unsaved_files = unsaved_files_get();
+            unsaved_files_t * p_unsaved_files = unsaved_files_get();
             unsigned retries = 0;
             while (!unit_reparse(p_unit, p_unsaved_files->p_list, p_unsaved_files->count) && retries < REPARSE_RETRIES_MAX)
             {
                 retries++;
             }
-            unsaved_files_release();
+            unsaved_files_release(p_unsaved_files);
 
             if (retries == REPARSE_RETRIES_MAX)
             {
@@ -277,6 +277,7 @@ static void handle_notification_text_document_did_change(const did_change_text_d
                 LOG("Reparse of %s successful\n", p_params->text_document.uri.path);
                 unit_diagnostics_get(p_unit, diag_callback, NULL, NULL);
             }
+            unit_storage_notify_change(p_params->text_document.uri.path);
         }
     }
 }
@@ -285,12 +286,12 @@ static void handle_notification_text_document_did_close(const did_close_text_doc
 {
     if (p_params->text_document.uri.path)
     {
-        unit_t * p_unit = unit_storage_remove(p_params->text_document.uri.path);
-        if (p_unit)
-        {
-            unit_free(p_unit);
-            mp_current_unit = NULL;
-        }
+    //     unit_t * p_unit = unit_storage_remove(p_params->text_document.uri.path);
+    //     if (p_unit)
+    //     {
+    //         unit_free(p_unit);
+    //         mp_current_unit = NULL;
+    //     }
     }
 }
 
@@ -304,9 +305,9 @@ static void handle_request_text_document_completion(const text_document_position
         {
             LOG("Completion at %s:%llu:%llu\n", p_params->text_document.uri.path, p_params->position.line, p_params->position.character);
             json_t * p_response_params = json_array();
-            const unsaved_files_t * p_unsaved_files = unsaved_files_get();
+            unsaved_files_t * p_unsaved_files = unsaved_files_get();
             bool complete = unit_code_completion(p_unit, p_params, p_unsaved_files->p_list, p_unsaved_files->count, completion_callback, p_response_params);
-            unsaved_files_release();
+            unsaved_files_release(p_unsaved_files);
 
             LOG("Code completion successful (%u results%s)\n", json_array_size(p_response_params), complete ? "" : ", incomplete");
             if (complete)
@@ -458,12 +459,13 @@ void command_handler_init(void)
     config.completion_priority_max = 10000;
     config.completion_results_max = 500;
     config.diagnostics_max = 1000;
+    config.p_index_file = ".vscode/clang-index.json";
     unit_init(&config);
     const compile_flags_t base_flags = {
         .pp_array = (char **) m_base_flags,
         .count = ARRAY_SIZE(m_base_flags)
     };
-    unit_storage_init(&base_flags);
+    unit_storage_init(&base_flags, diag_callback);
     unsaved_files_init();
 
     lsp_request_handler_initialize_register(handle_request_initialize);

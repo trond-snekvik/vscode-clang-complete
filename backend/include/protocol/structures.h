@@ -17,6 +17,15 @@
 /* Common parameter fields */
 typedef enum
 {
+    COMPILATION_DATABASE_PARAMS_FIELD_PATH                 = (1 << 0),
+    COMPILATION_DATABASE_PARAMS_FIELD_ADDITIONAL_ARGUMENTS = (1 << 1),
+
+    COMPILATION_DATABASE_PARAMS_FIELD_ALL = (0x3),
+    COMPILATION_DATABASE_PARAMS_FIELD_REQUIRED = (COMPILATION_DATABASE_PARAMS_FIELD_PATH)
+} compilation_database_params_fields_t;
+
+typedef enum
+{
     INITIALIZATION_OPTIONS_FIELD_FLAGS                = (1 << 0),
     INITIALIZATION_OPTIONS_FIELD_COMPILATION_DATABASE = (1 << 1),
 
@@ -541,11 +550,20 @@ typedef enum
 /* Common parameter structures */
 typedef struct
 {
+    compilation_database_params_fields_t valid_fields;
+
+    char * path;
+    char * * p_additional_arguments;
+    uint32_t additional_arguments_count;
+} compilation_database_params_t;
+
+typedef struct
+{
     initialization_options_fields_t valid_fields;
 
     char * * p_flags;
     uint32_t flags_count;
-    char * * p_compilation_database;
+    compilation_database_params_t * p_compilation_database;
     uint32_t compilation_database_count;
 } initialization_options_t;
 

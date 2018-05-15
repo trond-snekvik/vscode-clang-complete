@@ -133,7 +133,7 @@ void semaphore_init(semaphore_t * p_sem, unsigned max_count)
 
 void semaphore_wait(semaphore_t * p_sem)
 {
-    WaitForSingleObject(p_sem->sem, 0);
+    WaitForSingleObject(p_sem->sem, INFINITE);
 }
 
 void semaphore_signal(semaphore_t * p_sem)
@@ -149,6 +149,17 @@ int atomic_get_and_add(atomic_counter_t * p_flag)
 int atomic_get_and_sub(atomic_counter_t * p_flag)
 {
     return (int) InterlockedAdd(&p_flag->value, -1);
+}
+
+
+profile_time_t profile_start(void)
+{
+    return GetTickCount();
+}
+
+unsigned profile_end(profile_time_t start_time)
+{
+    return GetTickCount() - start_time;
 }
 
 #else
@@ -199,4 +210,31 @@ void shared_resource_lock(shared_resource_t * p_resource)
 void shared_resource_unlock(shared_resource_t * p_resource)
 {
     mutex_release(&p_resource->owner_mut);
+}
+
+
+
+static bool char_equal_case_insensitive(char a, char b)
+{
+    a = (a >= 'A' && a <= 'Z') ? a - 'A' + 'a' : a;
+    b = (b >= 'A' && b <= 'Z') ? b - 'A' + 'a' : b;
+    return a == b;
+}
+
+bool string_fuzzy_match(const char * p_string, const char * p_pattern)
+{
+    while (*p_pattern)
+    {
+        if (!*p_string)
+        {
+            return false;
+        }
+
+        if (char_equal_case_insensitive(*p_string, *p_pattern))
+        {
+            p_pattern++;
+        }
+        p_string++;
+    }
+    return true;
 }

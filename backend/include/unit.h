@@ -15,6 +15,7 @@ typedef struct
 {
     char ** pp_array;
     unsigned count;
+    bool full_argv;
 } compile_flags_t;
 
 typedef struct
@@ -42,6 +43,8 @@ typedef struct
     Array * p_declarations;
     Array * p_references;
     HashTable * p_included_files;
+    char * p_main_header;
+    unsigned main_header_score;
 } unit_t;
 
 typedef struct
@@ -49,6 +52,7 @@ typedef struct
     uint32_t completion_priority_max;
     uint32_t completion_results_max;
     uint32_t diagnostics_max;
+    char * p_index_file;
 } unit_config_t;
 
 typedef enum
@@ -125,6 +129,13 @@ bool unit_includes_file(unit_t * p_unit, const char * p_file);
 
 void unit_symbols_get(unit_t * p_unit, unit_symbol_callback_t callback, void * p_args);
 
+bool unit_index_load(time_t * p_timestamp);
+void unit_index_save(time_t timestamp);
+void unit_index_free(void);
+
+const char * unit_index_source_for_header(const char * p_header);
+const char * unit_index_header_for_source(const char * p_header);
+
 static inline void compile_flags_clone(compile_flags_t * p_dst, const compile_flags_t * p_src)
 {
     p_dst->count = p_src->count;
@@ -140,6 +151,7 @@ static inline void compile_flags_clone(compile_flags_t * p_dst, const compile_fl
 	{
 		p_dst->pp_array = NULL;
 	}
+    p_dst->full_argv = p_src->full_argv;
 }
 
 static inline void compile_flags_free(compile_flags_t * p_flags)

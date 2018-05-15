@@ -68,6 +68,7 @@ static inline text_document_save_reason_t decode_text_document_save_reason(json_
     return (text_document_save_reason_t) decode_number(p_json);
 }
 /* Common parameter JSON decoders */
+compilation_database_params_t decode_compilation_database_params(json_t * p_json);
 initialization_options_t decode_initialization_options(json_t * p_json);
 workspace_client_capabilities_t decode_workspace_client_capabilities(json_t * p_json);
 text_document_client_capabilities_t decode_text_document_client_capabilities(json_t * p_json);
@@ -130,6 +131,7 @@ did_change_watched_files_params_t decode_did_change_watched_files_params(json_t 
  * Freers
  ******************************************************************************/
 /* Common parameter structure freers */
+void free_compilation_database_params(compilation_database_params_t value);
 void free_initialization_options(initialization_options_t value);
 void free_workspace_client_capabilities(workspace_client_capabilities_t value);
 void free_text_document_client_capabilities(text_document_client_capabilities_t value);

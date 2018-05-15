@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include "json_rpc.h"
 #include "log.h"
+#include "utils.h"
 
 #define CONTENT_LENGTH_HEADER   "Content-Length: %u\r\n\r\n"
 
@@ -145,8 +146,10 @@ static void handle_incoming(json_t * p_root)
                         if (p_handler)
                         {
                             unsigned responses_before = m_responses_sent;
-                            p_handler->callback(p_handler->p_method, p_params);
-                        }
+							shared_resource_lock(&m_resource);
+							p_handler->callback(p_handler->p_method, p_params);
+							shared_resource_unlock(&m_resource);
+						}
                         else
                         {
                             LOG("No handler.\n");
@@ -351,9 +354,10 @@ void json_rpc_listen(FILE * stream)
             if (buffer_size < length)
             {
                 buffer_size = length + 1;
-                LOG("Increasing buffer size to %u\n", buffer_size);
+                LOG("Increasing buffer size to %u... ", buffer_size);
                 p_buffer = REALLOC(p_buffer, buffer_size);
                 ASSERT(p_buffer);
+                LOG("Done.\n");
             }
 
             char * p_c = p_buffer;

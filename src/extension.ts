@@ -5,9 +5,14 @@ import * as jsonrpc from 'vscode-jsonrpc';
 import * as fs from 'fs';
 import * as path from 'path';
 
+interface CompilationDatabaseParams {
+    path: string;
+    additionalArguments?: string[];
+}
+
 interface InitializationOptions {
     flags: string[];
-    compilationDatabase: string[];
+    compilationDatabase: CompilationDatabaseParams[];
 }
 
 var langClient: client.LanguageClient;
@@ -20,13 +25,16 @@ var ARGS_FILES = [
 
 function server_launch() {
     var config = vscode.workspace.getConfiguration();
-    console.log("CONFIG: " + config);
     var flags = <string[]> config.get(CONFIG_SECTION + '.flags');
-    var db = config.get(CONFIG_SECTION + '.compile_commands');
-    var initOptions = <InitializationOptions>{ flags: flags, compilationDatabase: db };
-    console.log("INIT OPTIONS: " + initOptions);
+    var db = <object[]>config.get(CONFIG_SECTION + '.compile_commands');
+
+    var initOptions = <InitializationOptions>{
+        flags: flags,
+        compilationDatabase: db.map(config => <CompilationDatabaseParams>{path: config['path'], additionalArguments: config['additional_arguments']})
+    };
+    console.dir("INIT OPTIONS: " + initOptions);
     console.log("FLAGS: " + flags);
-    console.log("DB: " + db);
+    console.dir(db);
 
     // look for various clang-complete arguments files:
     if (!flags) {
@@ -38,7 +46,7 @@ function server_launch() {
         }
     }
 
-    var serverOptions: client.ServerOptions = {command: __dirname + '/../../backend/bin/backend.exe', options: {env: {"LIBCLANG_NOTHREADS": 1}}};
+    var serverOptions: client.ServerOptions = {command: __dirname + '/../../backend/bin/backend.exe'}//, options: {env: {"LIBCLANG_NOTHREADS": 1}}};
     var clientOptions: client.LanguageClientOptions = {
         documentSelector: [{language: 'c'}, {language: 'cpp'}],
         diagnosticCollectionName: 'clang_diags',

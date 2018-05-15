@@ -11,7 +11,8 @@
         "Other"
     ],
     "activationEvents": [
-        "*"
+        "onLanguage:c",
+        "onLanguage:cpp"
     ],
     "main": "./out/src/extension",
     "contributes": {
@@ -41,13 +42,33 @@
                         "items": {
                             "type": "string"
                         },
+                        "title": "Default Clang flags",
                         "description": "List of compiler arguments, used when no compile_commands.json-file is available for the given file."
                     },
                     "clang-server.compile_commands": {
                         "type": "array",
                         "items": {
-                            "type": "string"
+                            "type": "object",
+                            "properties": {
+                                "path": {
+                                    "type": "string",
+                                    "title": "Directory containing a compile_commands.json-file.",
+                                    "description": "Path to a folder containing a compile_commands.json-file"
+                                },
+                                "additional_arguments": {
+                                    "type": "array",
+                                    "title": "Additional arguments",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "description": "List of additional arguments to append to each compiler invocation for the given compile command database."
+                                }
+                            },
+                            "required":[
+                                "path"
+                            ]
                         },
+                        "title": "Compile command directories",
                         "description": "List of directories to find compile_commands.json-files to use for getting compilation flags for translation units."
                     }
                 }

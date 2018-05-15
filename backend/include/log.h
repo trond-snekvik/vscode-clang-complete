@@ -2,7 +2,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include "utils.h"
+// #include "utils.h"
 
 #define LOG_FILE    "log.txt"
 #define OUT_FILE    "out.txt"
@@ -17,25 +17,15 @@
     {                                     \
         extern char g_log_buf[];                   \
         sprintf(g_log_buf, fmt, ##__VA_ARGS__); \
-        FILE *f = fopen(LOG_FILE, "a");   \
-        if (f)\
-        {\
-            fputs(g_log_buf, f);   \
-            fclose(f);                        \
-        }\
+        safe_puts(LOG_FILE, g_log_buf);\
     } while (0)
 
 #define OUTPUT(_str)                  \
     do                                    \
     {                                     \
-        printf("%s", _str);                        \
+        printf("%s", _str);                   \
         fflush(stdout); \
-        FILE *f = fopen(OUT_FILE, "a");   \
-        if (f)\
-        {\
-            fputs(_str, f);                    \
-            fclose(f);                        \
-        }\
+        safe_puts(OUT_FILE, _str);\
     } while (0)
 #else
 #define LOG(fmt, ...)
@@ -48,6 +38,8 @@
     } while (0)
 #endif
 
+void log_init(void);
+void safe_puts(const char * p_filename, const char * p_string);
 void json_rpc_log(const char * p_message);
 void assert_handler(const char * p_file, unsigned line);
 

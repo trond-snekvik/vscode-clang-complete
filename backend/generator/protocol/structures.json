@@ -5,10 +5,18 @@
     },
     "common": [
         {
+            "name": "compilation_database_params",
+            "members": {
+                "path": "string",
+                "additional_arguments": "string[]"
+            },
+            "required": ["path"]
+        },
+        {
             "name": "initialization_options",
             "members": {
                 "flags": "string[]",
-                "compilation_database": "string[]"
+                "compilation_database": "compilation_database_params[]"
             },
             "required": []
         },

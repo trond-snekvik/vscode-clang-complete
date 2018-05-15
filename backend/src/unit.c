@@ -7,12 +7,10 @@
 #include "decoders.h"
 #include "encoders.h"
 #include "indexer.h"
-#include <Windows.h>
 
 #define TRANSLATION_UNIT_PARSE_OPTIONS (CXTranslationUnit_PrecompiledPreamble |                  \
                                         CXTranslationUnit_CacheCompletionResults |               \
                                         CXTranslationUnit_IncludeBriefCommentsInCodeCompletion | \
-                                        CXTranslationUnit_CreatePreambleOnFirstParse |           \
                                         CXTranslationUnit_DetailedPreprocessingRecord |          \
                                         CXTranslationUnit_KeepGoing)
 
@@ -231,7 +229,7 @@ static bool diagnostic_parse(CXDiagnostic clang_diag, diagnostic_t * p_diagnosti
     if (p_diagnostic->related_information_count > 0)
     {
         p_diagnostic->p_related_information = MALLOC(sizeof(diagnostic_related_information_t) * p_diagnostic->related_information_count);
-        
+
         for (unsigned i = 0; i < p_diagnostic->related_information_count; ++i)
         {
             CXDiagnostic child_diag = clang_getDiagnosticInSet(child_diags, i);
@@ -465,11 +463,40 @@ static void include_visitor(CXFile included_file,
     }
 }
 
+static void clear_index_decls(unit_t * p_unit)
+{
+    index_declaration_t * p_decl;
+    while (array_remove_last(p_unit->p_declarations, &p_decl) == CC_OK)
+    {
+        index_decl_remove(&m_decl_index, p_decl->p_USR, p_decl);
+        index_decl_free(p_decl);
+    }
+}
+
+static void clear_included_files(unit_t * p_unit)
+{
+    p_unit->p_main_header = NULL;
+    p_unit->main_header_score = PATH_PAIR_SCORE_SUBSTRING;
+	if (hashtable_size(p_unit->p_included_files) > 0)
+	{
+		HashTableIter iter;
+		hashtable_iter_init(&iter, p_unit->p_included_files);
+		TableEntry * p_entry;
+		while (hashtable_iter_next(&iter, &p_entry) == CC_OK)
+		{
+			char * p_value;
+			if (hashtable_iter_remove(&iter, &p_value) == CC_OK)
+				FREE(p_value);
+		}
+	}
+}
+
 typedef struct
 {
     unit_t * p_unit;
     CXFile main_file;
     bool in_main_file;
+    bool cleared_includes;
 } index_context_t;
 
 static CXIdxClientFile index_entered_mainfile(CXClientData client_data, CXFile main_file, void * p_reserved)
@@ -506,7 +533,6 @@ static void index_declaration(CXClientData client_data, const CXIdxDeclInfo * p_
                 p_decl->p_USR = NULL;
                 p_decl->kind = kind;
                 p_decl->p_name = STRDUP(clang_getCString(symbolname));
-                p_decl->p_unit = p_context->p_unit;
                 p_decl->scope = (visibility == CXVisibility_Default) ? INDEX_SCOPE_GLOBAL : INDEX_SCOPE_LOCAL;
                 p_decl->location.uri = uri_file(clang_getCString(filename));
                 p_decl->location.range.start.line = line - 1;
@@ -518,19 +544,6 @@ static void index_declaration(CXClientData client_data, const CXIdxDeclInfo * p_
 
                 index_declaration_add(&m_decl_index, p_info->entityInfo->USR, p_decl);
                 array_add(p_context->p_unit->p_declarations, p_decl);
-
-#if 0
-                LOG("Decl: %s | %s:%u:%u [def: %u, container: %u, redecl: %u, skipped: %u] (kind: %s)\n",
-                    p_info->entityInfo->USR,
-                    clang_getCString(filename),
-                    line,
-                    column,
-                    p_info->isDefinition,
-                    p_info->isContainer,
-                    p_info->isRedeclaration,
-                    (p_info->flags & CXIdxDeclFlag_Skipped),
-                    clang_getCString(clang_getCursorKindSpelling(clang_getCursorKind(p_info->cursor))));
-#endif
             }
             clang_disposeString(filename);
         }
@@ -540,38 +553,33 @@ static void index_declaration(CXClientData client_data, const CXIdxDeclInfo * p_
 
 CXIdxClientFile index_included_file(CXClientData client_data, const CXIdxIncludedFileInfo * p_info)
 {
-    index_context_t * p_context = client_data;
-    CXString filename = clang_getFileName(p_info->file);
-    char * p_filename = STRDUP(clang_getCString(filename));
-    ASSERT(hashtable_add(p_context->p_unit->p_included_files, p_filename, p_filename) == CC_OK);
-    clang_disposeString(filename);
-    return NULL;
-}
-
-static void clear_index_decls(unit_t * p_unit)
-{
-    index_declaration_t * p_decl;
-    while (array_remove_last(p_unit->p_declarations, &p_decl) == CC_OK)
+    if (p_info->file)
     {
-        index_decl_remove(&m_decl_index, p_decl->p_USR, p_decl);
-        index_decl_free(p_decl);
+        index_context_t * p_context = client_data;
+        if (!p_context->cleared_includes)
+        {
+            clear_included_files(p_context->p_unit);
+            p_context->cleared_includes = true;
+        }
+        CXString filename = clang_getFileName(p_info->file);
+        char * p_filename = absolute_path(clang_getCString(filename), path_cwd());
+        clang_disposeString(filename);
+        ASSERT(hashtable_add(p_context->p_unit->p_included_files, p_filename, p_filename) == CC_OK);
+        if (!p_info->isAngled)
+        {
+            unsigned header_score = path_pair_score(p_filename, p_context->p_unit->p_filename);
+            if (header_score > p_context->p_unit->main_header_score && !path_equals(p_filename, p_context->p_unit->p_filename))
+            {
+                p_context->p_unit->p_main_header = p_filename;
+                p_context->p_unit->main_header_score = header_score;
+            }
+        }
     }
-}
-
-static void clear_included_files(unit_t * p_unit)
-{
-	if (hashtable_size(p_unit->p_included_files) > 0)
-	{
-		HashTableIter iter;
-		hashtable_iter_init(&iter, p_unit->p_included_files);
-		TableEntry * p_entry;
-		while (hashtable_iter_next(&iter, &p_entry) == CC_OK)
-		{
-			char * p_value;
-			if (hashtable_iter_remove(&iter, &p_value) == CC_OK)
-				FREE(p_value);
-		}
-	}
+    else
+    {
+        LOG("Included file %s not found\n", p_info->filename);
+    }
+    return NULL;
 }
 
 static bool index_source_file(unit_t * p_unit,
@@ -580,28 +588,49 @@ static bool index_source_file(unit_t * p_unit,
                               bool keep_tu)
 {
     mutex_take(&p_unit->decl_mutex);
-    DWORD start_timer = GetTickCount();
+    profile_time_t start_time = profile_start();
     IndexerCallbacks callbacks = {
         .enteredMainFile = index_entered_mainfile,
+        .ppIncludedFile = index_included_file,
         .indexDeclaration = index_declaration
     };
     index_context_t context = {
-        .p_unit = p_unit
+        .p_unit = p_unit,
+        .cleared_includes = true
     };
-
-    bool success = (clang_indexSourceFile(m_index_action,
-                                          &context,
-                                          &callbacks,
-                                          sizeof(callbacks),
-                                          INDEX_OPTIONS,
-                                          p_unit->p_filename,
-                                          p_unit->flags.pp_array,
-                                          p_unit->flags.count,
-                                          p_unsaved_files,
-                                          unsaved_file_count,
-                                          keep_tu ? &p_unit->tu : NULL,
-                                          TRANSLATION_UNIT_PARSE_OPTIONS)
-                    == CXError_Success);
+    bool success;
+    if (p_unit->flags.full_argv)
+    {
+        success = (clang_indexSourceFileFullArgv(m_index_action,
+                                            &context,
+                                            &callbacks,
+                                            sizeof(callbacks),
+                                            INDEX_OPTIONS,
+                                            NULL,
+                                            p_unit->flags.pp_array,
+                                            p_unit->flags.count,
+                                            p_unsaved_files,
+                                            unsaved_file_count,
+                                            keep_tu ? &p_unit->tu : NULL,
+                                            TRANSLATION_UNIT_PARSE_OPTIONS)
+                        == CXError_Success);
+    }
+    else
+    {
+        success = (clang_indexSourceFile(m_index_action,
+                                            &context,
+                                            &callbacks,
+                                            sizeof(callbacks),
+                                            INDEX_OPTIONS,
+                                            p_unit->p_filename,
+                                            p_unit->flags.pp_array,
+                                            p_unit->flags.count,
+                                            p_unsaved_files,
+                                            unsaved_file_count,
+                                            keep_tu ? &p_unit->tu : NULL,
+                                            TRANSLATION_UNIT_PARSE_OPTIONS)
+                        == CXError_Success);
+    }
 
     if (keep_tu)
     {
@@ -612,11 +641,40 @@ static bool index_source_file(unit_t * p_unit,
         LOG("Indexing failed\n");
     }
 
-    DWORD end_timer = GetTickCount();
-    LOG("Index %s: %ums\n", p_unit->p_filename, end_timer - start_timer);
+    if (p_unit->p_main_header)
+    {
+        index_header_set(&m_decl_index, p_unit->p_filename, p_unit->p_main_header);
+    }
+
+    unsigned delta = profile_end(start_time);
+    LOG("Index %s: %ums\n", p_unit->p_filename, delta);
 
     mutex_release(&p_unit->decl_mutex);
     return success;
+}
+
+static void index_translation_unit(unit_t * p_unit)
+{
+    mutex_take(&p_unit->decl_mutex);
+    clear_index_decls(p_unit);
+
+    profile_time_t start_timer = profile_start();
+    IndexerCallbacks callbacks = {
+        .enteredMainFile = index_entered_mainfile,
+        .ppIncludedFile = index_included_file,
+        .indexDeclaration = index_declaration
+    };
+    index_context_t context = {
+        .p_unit = p_unit,
+        .cleared_includes = false
+    };
+    clang_indexTranslationUnit(m_index_action_tu, &context, &callbacks, sizeof(callbacks), INDEX_OPTIONS, p_unit->tu);
+    index_header_set(&m_decl_index, p_unit->p_filename, p_unit->p_main_header);
+
+    LOG("Index: %ums\n", profile_end(start_timer));
+    LOG("%s header file: %s (score: %u)\n", p_unit->p_filename, p_unit->p_main_header, p_unit->main_header_score);
+
+    mutex_release(&p_unit->decl_mutex);
 }
 
 void unit_init(const unit_config_t * p_config)
@@ -637,14 +695,10 @@ void unit_diagnostics_callback_set(unit_diagnostics_callback_t callback)
 unit_t * unit_create(const char * p_filename,
                      const compile_flags_t * p_flags)
 {
-    unit_t * p_unit = MALLOC(sizeof(unit_t));
+    unit_t * p_unit = CALLOC(sizeof(unit_t), 1);
 
     compile_flags_clone(&p_unit->flags, p_flags);
-
     p_unit->p_filename = normalize_path(p_filename);
-    p_unit->active = false;
-    p_unit->p_fixits = NULL;
-    p_unit->fixit_count = 0;
     mutex_init(&p_unit->decl_mutex);
     mutex_init(&p_unit->mutex);
     ASSERT(hashtable_new(&p_unit->diag_files) == CC_OK);
@@ -683,51 +737,39 @@ void unit_index(unit_t * p_unit,
 #endif
 }
 
-static void index_translation_unit(unit_t * p_unit)
-{
-    mutex_take(&p_unit->decl_mutex);
-
-    DWORD start_timer = GetTickCount();
-    IndexerCallbacks callbacks = {
-        .enteredMainFile = index_entered_mainfile,
-        .indexDeclaration = index_declaration
-    };
-    index_context_t context = {
-        .p_unit = p_unit
-    };
-    clang_indexTranslationUnit(m_index_action_tu, &context, &callbacks, sizeof(callbacks), INDEX_OPTIONS, p_unit->tu);
-
-    DWORD end_timer = GetTickCount();
-    LOG("Index: %ums\n", end_timer - start_timer);
-
-    mutex_release(&p_unit->decl_mutex);
-}
-
 bool unit_parse(unit_t * p_unit,
                 struct CXUnsavedFile * p_unsaved_files,
                 uint32_t unsaved_file_count)
 {
     ASSERT(!p_unit->active);
-    mutex_take(&p_unit->decl_mutex);
-    clear_included_files(p_unit);
-    clear_index_decls(p_unit);
-#if 1
-    p_unit->active = (clang_parseTranslationUnit2(m_index,
-                                                  p_unit->p_filename,
-                                                  p_unit->flags.pp_array,
-                                                  p_unit->flags.count,
-                                                  p_unsaved_files,
-                                                  unsaved_file_count,
-                                                  TRANSLATION_UNIT_PARSE_OPTIONS,
-                                                  &p_unit->tu) == CXError_Success);
+
+    if (p_unit->flags.full_argv)
+    {
+        p_unit->active = (clang_parseTranslationUnit2FullArgv(m_index,
+                                                    NULL,
+                                                    p_unit->flags.pp_array,
+                                                    p_unit->flags.count,
+                                                    p_unsaved_files,
+                                                    unsaved_file_count,
+                                                    TRANSLATION_UNIT_PARSE_OPTIONS,
+                                                    &p_unit->tu) == CXError_Success);
+    }
+    else
+    {
+        p_unit->active = (clang_parseTranslationUnit2(m_index,
+                                                    p_unit->p_filename,
+                                                    p_unit->flags.pp_array,
+                                                    p_unit->flags.count,
+                                                    p_unsaved_files,
+                                                    unsaved_file_count,
+                                                    TRANSLATION_UNIT_PARSE_OPTIONS,
+                                                    &p_unit->tu) == CXError_Success);
+    }
+
     if (p_unit->active)
     {
         index_translation_unit(p_unit);
     }
-#else
-    index_source_file(p_unit, p_unsaved_files, unsaved_file_count, true);
-#endif
-    mutex_release(&p_unit->decl_mutex);
     return p_unit->active;
 }
 
@@ -735,7 +777,46 @@ void unit_free(unit_t * p_unit)
 {
     FREE((char *) p_unit->p_filename);
     clang_disposeTranslationUnit(p_unit->tu);
+    clear_included_files(p_unit);
+    hashtable_destroy(p_unit->p_included_files);
+    clear_index_decls(p_unit);
+    array_destroy(p_unit->p_declarations);
+    compile_flags_free(&p_unit->flags);
+
+    for (size_t i = 0; i < p_unit->fixit_count; ++i)
+    {
+        free_range(p_unit->p_fixits[i].range);
+        FREE(p_unit->p_fixits[i].p_filename);
+        FREE(p_unit->p_fixits[i].p_string);
+    }
+    FREE(p_unit->p_fixits);
+    FREE(p_unit->p_main_header);
+
+    if (hashtable_size(p_unit->diag_files) > 0)
+    {
+        HashTableIter iter;
+        hashtable_iter_init(&iter, p_unit->diag_files);
+        TableEntry * p_entry;
+        while (hashtable_iter_next(&iter, &p_entry) == CC_OK)
+        {
+            diag_file_t * p_file;
+            hashtable_iter_remove(&iter, &p_file);
+            for (size_t i = 0; i < p_file->diag_count; ++i)
+            {
+                free_diagnostic(p_file->diagnostics[i]);
+                FREE(p_file->p_uri);
+            }
+        }
+    }
+
+
     FREE(p_unit);
+}
+
+void unit_index_free(void)
+{
+    clang_disposeIndex(m_index);
+    index_free(&m_decl_index);
 }
 
 void unit_suspend(unit_t * p_unit)
@@ -749,10 +830,7 @@ bool unit_reparse(unit_t * p_unit,
                   uint32_t unsaved_file_count)
 {
     ASSERT(p_unit->active);
-    mutex_take(&p_unit->decl_mutex);
-
-    clear_index_decls(p_unit);
-    clear_included_files(p_unit);
+    LOG("Reparsing %s\n", p_unit->p_filename);
 
     enum CXErrorCode status = clang_reparseTranslationUnit(p_unit->tu,
                                          unsaved_file_count,
@@ -766,7 +844,6 @@ bool unit_reparse(unit_t * p_unit,
     {
         LOG("Reparse failed: Status %u\n", status);
     }
-    mutex_release(&p_unit->decl_mutex);
     return (status == CXError_Success);
 }
 
@@ -1496,6 +1573,10 @@ unsigned unit_diagnostics_get(unit_t *p_unit,
             {
                 p_diag_file->diagnostics[p_diag_file->diag_count++] = diag;
             }
+            else
+            {
+                free_diagnostic(diag);
+            }
         }
 
         unsigned num_fixits = clang_getDiagnosticNumFixIts(clang_diag);
@@ -1610,6 +1691,7 @@ void unit_fixits_resolve(unit_t * p_unit, const char * p_filename, const range_t
 
 bool unit_includes_file(unit_t * p_unit, const char * p_file)
 {
+#if 0
     inclusion_file_context_t context =
     {
         false,
@@ -1617,6 +1699,10 @@ bool unit_includes_file(unit_t * p_unit, const char * p_file)
     };
     clang_getInclusions(p_unit->tu, include_visitor, &context);
     return context.found_file;
+#else
+    void * p_dummy;
+    return (hashtable_get(p_unit->p_included_files, (void *) p_file, &p_dummy) == CC_OK);
+#endif
 }
 
 void unit_symbols_get(unit_t * p_unit, unit_symbol_callback_t callback, void * p_args)
@@ -1630,4 +1716,25 @@ void unit_symbols_get(unit_t * p_unit, unit_symbol_callback_t callback, void * p
         callback(&p_decl->location, p_decl->p_name, p_decl->kind, p_args);
     }
     mutex_release(&p_unit->decl_mutex);
+}
+
+bool unit_index_load(time_t * p_timestamp)
+{
+    return index_load(&m_decl_index, m_config.p_index_file, p_timestamp);
+}
+
+void unit_index_save(time_t timestamp)
+{
+    index_save(&m_decl_index, m_config.p_index_file, timestamp);
+}
+
+
+const char * unit_index_source_for_header(const char * p_header)
+{
+    return index_source_for_header(&m_decl_index, p_header);
+}
+
+const char * unit_index_header_for_source(const char * p_header)
+{
+    return index_header_for_source(&m_decl_index, p_header);
 }

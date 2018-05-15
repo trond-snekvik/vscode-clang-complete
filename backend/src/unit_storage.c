@@ -25,17 +25,119 @@ typedef struct
 {
     Queue * p_queue;
     mutex_t mut;
+    bool index_loaded;
+    time_t prev_index_time;
 } index_thread_context_t;
 
 static compile_flags_t m_base_flags;
 static unit_storage_t m_storage;
+static bool m_exit;
+static thread_t * mp_index_thread;
+static thread_t * mp_reparse_thread;
+static Queue * mp_change_queue;
+static semaphore_t m_change_queue_sem;
 
+static unit_diagnostics_callback_t m_diag_callback;
 
-void unit_storage_init(const compile_flags_t * p_base_flags)
+static void reparse_thread(void * p_context)
 {
+    while (!m_exit)
+    {
+        char * p_changed_file;
+        if (queue_size(mp_change_queue) == 0)
+        {
+            semaphore_wait(&m_change_queue_sem);
+        }
+
+        bool found_elem = (queue_poll(mp_change_queue, &p_changed_file) == CC_OK);
+
+        if (found_elem && hashtable_size(m_storage.p_table) > 0)
+        {
+            unsaved_files_t * p_unsaved_files = unsaved_files_get();
+            LOG("ASYNC CHANGE: %s\n", p_changed_file);
+
+            HashTableIter iter;
+            hashtable_iter_init(&iter, m_storage.p_table);
+            TableEntry * p_entry;
+            while (hashtable_iter_next(&iter, &p_entry) == CC_OK)
+            {
+                unit_t * p_unit = p_entry->value;
+                if (unit_includes_file(p_unit, p_changed_file) && !path_equals(p_unit->p_filename, p_changed_file))
+                {
+                    unit_reparse(p_unit, p_unsaved_files->p_list, p_unsaved_files->count);
+                    unit_diagnostics_get(p_unit, m_diag_callback, NULL, NULL);
+                }
+            }
+
+            FREE(p_changed_file);
+            unsaved_files_release(p_unsaved_files);
+        }
+    }
+}
+
+void unit_storage_init(const compile_flags_t * p_base_flags, unit_diagnostics_callback_t diag_callback)
+{
+    m_exit = false;
     ASSERT(hashtable_new(&m_storage.p_table) == CC_OK);
     ASSERT(hashtable_new(&m_storage.p_directories) == CC_OK);
+    ASSERT(queue_new(&mp_change_queue) == CC_OK);
+    semaphore_init(&m_change_queue_sem, 1);
     compile_flags_clone(&m_base_flags, p_base_flags);
+    m_diag_callback = diag_callback;
+    mp_reparse_thread = thread_start(reparse_thread, NULL, THREAD_PRIORITY_LOWEST);
+    ASSERT(mp_reparse_thread);
+}
+
+void unit_storage_wait_for_completion(void)
+{
+    m_exit = true;
+    if (mp_reparse_thread)
+    {
+        semaphore_signal(&m_change_queue_sem);
+        thread_join(mp_reparse_thread);
+    }
+	if (mp_index_thread)
+	{
+		thread_join(mp_index_thread);
+	}
+
+    if (hashtable_size(m_storage.p_directories) > 0)
+    {
+        size_t match_len = 0;
+        HashTableIter iter;
+        hashtable_iter_init(&iter, m_storage.p_directories);
+        TableEntry * p_entry;
+        while (hashtable_iter_next(&iter, &p_entry) == CC_OK)
+        {
+            compile_directory_t * p_it;
+            ASSERT(hashtable_iter_remove(&iter, &p_it) == CC_OK);
+            compile_flags_free(&p_it->flags);
+            FREE(p_it->p_path);
+            FREE(p_it);
+        }
+    }
+    hashtable_destroy(m_storage.p_directories);
+
+    if (hashtable_size(m_storage.p_table) > 0)
+    {
+        size_t match_len = 0;
+        HashTableIter iter;
+        hashtable_iter_init(&iter, m_storage.p_table);
+        TableEntry * p_entry;
+        while (hashtable_iter_next(&iter, &p_entry) == CC_OK)
+        {
+            unit_t * p_it;
+            ASSERT(hashtable_iter_remove(&iter, &p_it) == CC_OK);
+            unit_free(p_it);
+        }
+    }
+    hashtable_destroy(m_storage.p_table);
+}
+
+void unit_storage_notify_change(const char * p_filename)
+{
+    ASSERT(queue_enqueue(mp_change_queue, absolute_path(p_filename, path_cwd())) == CC_OK);
+    semaphore_signal(&m_change_queue_sem);
 }
 
 static void index_thread(void * p_args)
@@ -53,14 +155,17 @@ static void index_thread(void * p_args)
         if (has_value)
         {
             json_rpc_suspend();
-            const unsaved_files_t * p_unsaved_files = unsaved_files_get();
+            unsaved_files_t * p_unsaved_files = unsaved_files_get();
 
-            if (!p_unit->active)
+            time_t last_edit;
+            bool found_file = path_last_edit(p_unit->p_filename, &last_edit);
+            bool new_changes = (!p_context->index_loaded || last_edit >= p_context->prev_index_time);
+
+            if (!p_unit->active && found_file && new_changes)
             {
                 unit_index(p_unit, p_unsaved_files->p_list, p_unsaved_files->count);
             }
-
-            unsaved_files_release();
+            unsaved_files_release(p_unsaved_files);
             json_rpc_resume();
         }
         else
@@ -73,8 +178,16 @@ static void index_thread(void * p_args)
 static void index_monitor_thread(void * p_args)
 {
     index_thread_context_t * p_context = p_args;
+    time_t index_start_time = time(0);
 
+    profile_time_t start_time = profile_start();
     thread_t * p_threads[INDEXING_THREADS];
+
+    p_context->index_loaded = false; //unit_index_load(&p_context->prev_index_time);
+    if (p_context->index_loaded)
+    {
+        LOG("Loaded index\n");
+    }
 
     for (unsigned i = 0; i < INDEXING_THREADS; ++i)
     {
@@ -85,22 +198,23 @@ static void index_monitor_thread(void * p_args)
     {
         thread_join(p_threads[i]);
     }
-    LOG("Indexing complete.\n");
+    LOG("Indexing complete: %u ms\n", profile_end(start_time));
 
     mutex_free(&p_context->mut);
     queue_destroy(p_context->p_queue);
+    unit_index_save(index_start_time);
     FREE(p_context);
 }
 
-bool unit_storage_compilation_database_load(const char * p_directory)
+bool unit_storage_compilation_database_load(const compilation_database_params_t * p_params)
 {
     CXCompilationDatabase_Error status;
-    CXCompilationDatabase db = clang_CompilationDatabase_fromDirectory(p_directory, &status);
+    CXCompilationDatabase db = clang_CompilationDatabase_fromDirectory(p_params->path, &status);
     if (status == CXCompilationDatabase_NoError)
     {
         CXCompileCommands commands = clang_CompilationDatabase_getAllCompileCommands(db);
         size_t command_count = clang_CompileCommands_getSize(commands);
-        LOG("Found %u commands in %s\n", command_count, p_directory);
+        LOG("Found %u commands in %s\n", command_count, p_params->path);
 
         index_thread_context_t  * p_context = MALLOC(sizeof(index_thread_context_t));
         mutex_init(&p_context->mut);
@@ -115,51 +229,45 @@ bool unit_storage_compilation_database_load(const char * p_directory)
 
             char * p_filename = normalize_path(clang_getCString(filename));
 
-            if (unit_storage_get(p_filename) == NULL)
+            unsigned command_flags_maxcount = clang_CompileCommand_getNumArgs(command);
+
+            if (command_flags_maxcount && unit_storage_get(p_filename) == NULL)
             {
                 compile_flags_t flags;
-                compile_flags_clone(&flags, &m_base_flags);
-                unsigned command_flags_maxcount = clang_CompileCommand_getNumArgs(command);
+                flags.full_argv = true;
+                flags.count = 0;
+                flags.pp_array = MALLOC(sizeof(const char *) * (command_flags_maxcount + m_base_flags.count + p_params->additional_arguments_count));
 
-                if (command_flags_maxcount > 0)
+                for (size_t j = 0; j < command_flags_maxcount; ++j)
                 {
-                    flags.pp_array = REALLOC(flags.pp_array, sizeof(const char *) * (command_flags_maxcount + m_base_flags.count));
-
-                    bool skip_arg = false;
-                    for (size_t j = 0; j < command_flags_maxcount; ++j)
+                    CXString arg = clang_CompileCommand_getArg(command, j);
+                    const char * p_arg = clang_getCString(arg);
+                    /* Make include paths absolute */
+                    if (strstr(p_arg, "-I") == p_arg || strstr(p_arg, "-i") == p_arg)
                     {
-                        CXString arg = clang_CompileCommand_getArg(command, j);
-                        char * p_arg = STRDUP(clang_getCString(arg));
-                        clang_disposeString(arg);
-
-                        if ((p_arg[0] == '-' || j == 0) && !skip_arg)
-                        {
-                            skip_arg = false;
-                            if (strcmp(p_arg, "-o") == 0)
-                            {
-                                skip_arg = true;
-                            }
-                            else
-                            {
-                                if (strstr(p_arg, "-I") == p_arg || strstr(p_arg, "-i") == p_arg && strstr(p_arg, "-isystem") != p_arg)
-                                {
-                                    char * p_abs_path = absolute_path(&p_arg[2], clang_getCString(directory));
-                                    flags.pp_array[flags.count] = CALLOC(1, 2 + strlen(p_abs_path) + 1);
-                                    sprintf(flags.pp_array[flags.count], "-I%s", p_abs_path);
-                                    FREE(p_abs_path);
-                                }
-                                else
-                                {
-                                    flags.pp_array[flags.count] = STRDUP(p_arg);
-                                }
-                                flags.count++;
-                            }
-                        }
-                        FREE(p_arg);
+                        char * p_absolute_path = absolute_path(&p_arg[2], clang_getCString(directory));
+                        flags.pp_array[flags.count] = MALLOC(2 + strlen(p_absolute_path) + 1);
+                        sprintf(flags.pp_array[flags.count], "-I%s", p_absolute_path);
+                        FREE(p_absolute_path);
+                        flags.count++;
                     }
+                    else
+                    {
+                        flags.pp_array[flags.count++] = STRDUP(p_arg);
+                    }
+                    clang_disposeString(arg);
+                }
+                // add base flags after loaded flags
+                for (size_t j = 0; j < m_base_flags.count; ++j)
+                {
+                    flags.pp_array[flags.count++] = STRDUP(m_base_flags.pp_array[j]);
+                }
+                // add user defined additional flags at the end
+                for (size_t j = 0; j < p_params->additional_arguments_count; ++j)
+                {
+                    flags.pp_array[flags.count++] = STRDUP(p_params->p_additional_arguments[j]);
                 }
 
-                compile_flags_print(&flags);
                 unit_t * p_unit = unit_create(p_filename, &flags);
 
                 if (p_unit)
@@ -192,8 +300,9 @@ bool unit_storage_compilation_database_load(const char * p_directory)
             clang_disposeString(filename);
             clang_disposeString(directory);
         }
-
-        thread_start(index_monitor_thread, p_context, THREAD_PRIO_NORMAL);
+        clang_CompileCommands_dispose(commands);
+        //index_thread(p_context);
+        mp_index_thread = thread_start(index_monitor_thread, p_context, THREAD_PRIO_NORMAL);
     }
     else
     {
@@ -217,6 +326,19 @@ unit_t * unit_storage_get(const char * p_filename)
     char * p_filename_normalized = normalize_path(p_filename);
 
     bool found = (hashtable_get(m_storage.p_table, (void *) p_filename_normalized, &p_unit) == CC_OK);
+
+    if (!found)
+    {
+        const char * p_source_file = unit_index_source_for_header(p_filename_normalized);
+        if (p_source_file)
+        {
+            found = (hashtable_get(m_storage.p_table, (void *) p_source_file, &p_unit) == CC_OK);
+            if (found)
+            {
+                LOG("Returning %s for header %s\n", p_unit->p_filename, p_source_file);
+            }
+        }
+    }
 
     FREE(p_filename_normalized);
     return (found ? p_unit : NULL);
@@ -249,7 +371,7 @@ bool unit_storage_flags_suggest(const char * p_filename, compile_flags_t * p_fla
     {
         *p_flags = p_dir->flags;
     }
-    else
+    else if (hashtable_size(m_storage.p_directories) > 0)
     {
         // find closest matching path:
         p_dir = NULL;

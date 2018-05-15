@@ -57,6 +57,7 @@ static inline json_t * encode_text_document_save_reason(text_document_save_reaso
     return json_integer(value);
 }
 /* Common parameter JSON encoders */
+json_t * encode_compilation_database_params(compilation_database_params_t value);
 json_t * encode_initialization_options(initialization_options_t value);
 json_t * encode_workspace_client_capabilities(workspace_client_capabilities_t value);
 json_t * encode_text_document_client_capabilities(text_document_client_capabilities_t value);

@@ -4,6 +4,8 @@
 #include "stack.h"
 #include "assert.h"
 #include "log.h"
+#include "utils.h"
+#include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -119,6 +121,8 @@ bool is_absolute_path(const char * p_path)
 
 char * absolute_path(const char * p_path, const char * p_root)
 {
+    ASSERT(p_path);
+    ASSERT(p_root);
     if (is_absolute_path(p_path))
     {
         return normalize_path(p_path);
@@ -181,6 +185,30 @@ char * path_directory(const char * p_file)
             *p_last_slash = '\0';
         return p_normalized;
     }
+}
+const char * path_filename(const char * p_file)
+{
+    const char * p_last_forward_slash = strrchr(p_file, '/');
+    const char * p_last_backward_slash = strrchr(p_file, '/');
+    if (!p_last_backward_slash && !p_last_backward_slash)
+    {
+        return p_file;
+    }
+    else
+    {
+        return max(p_last_backward_slash, p_last_forward_slash) + 1;
+    }
+}
+
+char * path_filename_no_ext(const char * p_file)
+{
+    char * p_filename = STRDUP(path_filename(p_file));
+    char * p_extension = strchr(p_filename, '.');
+    if (p_extension)
+    {
+        *p_extension = '\0';
+    }
+    return p_filename;
 }
 
 char * path_closest_common_ancestor(const char * p_path1, const char * p_path2)
@@ -254,3 +282,52 @@ void path_get_files(const char * p_directory, path_file_cb_t callback, bool recu
 #endif
 }
 
+#ifdef _WIN32
+bool path_last_edit(const char * p_path, time_t * p_time)
+{
+    HANDLE hFile = CreateFile(p_path, GENERIC_READ, FILE_SHARE_READ, NULL,
+        OPEN_EXISTING, 0, NULL);
+
+    if (hFile != INVALID_HANDLE_VALUE)
+    {
+        FILETIME file_time;
+        if (GetFileTime(hFile, NULL, NULL, &file_time))
+        {
+            uint64_t long_time = file_time.dwLowDateTime + ((uint64_t) file_time.dwHighDateTime << 32);
+            *p_time = (long_time - 116444736000000000) / 10000000;
+        }
+    }
+    CloseHandle(hFile);
+    return (hFile != INVALID_HANDLE_VALUE);
+}
+#endif
+
+unsigned path_pair_score(const char * p_header, const char * p_source)
+{
+    char * p_header_filename = path_filename_no_ext(p_header);
+    char * p_source_filename = path_filename_no_ext(p_source);
+    size_t header_len = strlen(p_header_filename);
+    size_t source_len = strlen(p_source_filename);
+
+    unsigned score = 0;
+    if (header_len == source_len)
+    {
+        if (memcmp(p_header_filename, p_source_filename, header_len) == 0)
+        {
+            score = PATH_PAIR_SCORE_SAME_NAME;
+        }
+    }
+    else if (strstr(p_header_filename, p_source_filename) || strstr(p_source_filename, p_header_filename))
+    {
+        score = PATH_PAIR_SCORE_SUBSTRING;
+    }
+
+    /* Common ancestor length is the tie breaker */
+    char * p_common_ancestor = path_closest_common_ancestor(p_header, p_source);
+    score += strlen(p_common_ancestor);
+    FREE(p_common_ancestor);
+    FREE(p_header_filename);
+    FREE(p_source_filename);
+
+    return score;
+}

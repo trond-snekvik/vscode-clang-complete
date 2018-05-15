@@ -10,8 +10,9 @@ typedef struct
 } unsaved_files_t;
 
 void unsaved_files_init(void);
-const unsaved_files_t * unsaved_files_get(void);
+unsaved_files_t * unsaved_files_get(void);
 void unsaved_file_set(const char * p_filename, const char * p_contents);
 bool unsaved_file_remove(const char * p_filename);
 void unsaved_file_patch(const char * p_filename, const char * p_new_contents, const position_t * p_start_pos, size_t old_len);
-void unsaved_files_release(void);
+void unsaved_files_release(unsaved_files_t * p_unsaved_files);
+void unsaved_files_free(void);

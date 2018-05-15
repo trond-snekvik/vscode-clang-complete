@@ -15,6 +15,42 @@ static decoder_error_t m_error;
  * Decoders
  ******************************************************************************/
 /* Common parameter JSON decoders */
+compilation_database_params_t decode_compilation_database_params(json_t * p_json)
+{
+    compilation_database_params_t retval;
+    memset(&retval, 0, sizeof(retval));
+
+    json_t * p_path_json = json_object_get(p_json, "path");
+    if (json_is_string(p_path_json))
+    {
+        retval.path = decode_string(p_path_json);
+        retval.valid_fields |= COMPILATION_DATABASE_PARAMS_FIELD_PATH;
+    }
+
+    json_t * p_additional_arguments_json = json_object_get(p_json, "additionalArguments");
+    if (json_is_array(p_additional_arguments_json))
+    {
+        retval.additional_arguments_count = json_array_size(p_additional_arguments_json);
+        retval.p_additional_arguments = malloc(sizeof(char  *) * retval.additional_arguments_count);
+        ASSERT(retval.p_additional_arguments);
+        json_t * p_it;
+        uint32_t index;
+        json_array_foreach(p_additional_arguments_json, index, p_it)
+        {
+            retval.p_additional_arguments[index] = decode_string(p_it);
+        }
+        retval.valid_fields |= COMPILATION_DATABASE_PARAMS_FIELD_ADDITIONAL_ARGUMENTS;
+    }
+
+
+    if ((retval.valid_fields & COMPILATION_DATABASE_PARAMS_FIELD_REQUIRED) != COMPILATION_DATABASE_PARAMS_FIELD_REQUIRED)
+    {
+        m_error = DECODER_ERROR_MISSING_REQUIRED_FIELDS;
+        LOG("Missing required parameters for compilation_database_params: Got 0x%x, expected 0x%x\n", retval.valid_fields, COMPILATION_DATABASE_PARAMS_FIELD_REQUIRED);
+    }
+    return retval;
+}
+
 initialization_options_t decode_initialization_options(json_t * p_json)
 {
     initialization_options_t retval;
@@ -39,13 +75,13 @@ initialization_options_t decode_initialization_options(json_t * p_json)
     if (json_is_array(p_compilation_database_json))
     {
         retval.compilation_database_count = json_array_size(p_compilation_database_json);
-        retval.p_compilation_database = malloc(sizeof(char  *) * retval.compilation_database_count);
+        retval.p_compilation_database = malloc(sizeof(compilation_database_params_t) * retval.compilation_database_count);
         ASSERT(retval.p_compilation_database);
         json_t * p_it;
         uint32_t index;
         json_array_foreach(p_compilation_database_json, index, p_it)
         {
-            retval.p_compilation_database[index] = decode_string(p_it);
+            retval.p_compilation_database[index] = decode_compilation_database_params(p_it);
         }
         retval.valid_fields |= INITIALIZATION_OPTIONS_FIELD_COMPILATION_DATABASE;
     }
@@ -2021,6 +2057,16 @@ did_change_watched_files_params_t decode_did_change_watched_files_params(json_t 
  * Freers
  ******************************************************************************/
 /* Common parameter structure freers */
+void free_compilation_database_params(compilation_database_params_t value)
+{
+    free_string(value.path);
+    for (uint32_t i = 0; i < value.additional_arguments_count; ++i)
+    {
+        free_string(value.p_additional_arguments[i]);
+    }
+    free(value.p_additional_arguments);
+}
+
 void free_initialization_options(initialization_options_t value)
 {
     for (uint32_t i = 0; i < value.flags_count; ++i)
@@ -2030,7 +2076,7 @@ void free_initialization_options(initialization_options_t value)
     free(value.p_flags);
     for (uint32_t i = 0; i < value.compilation_database_count; ++i)
     {
-        free_string(value.p_compilation_database[i]);
+        free_compilation_database_params(value.p_compilation_database[i]);
     }
     free(value.p_compilation_database);
 }

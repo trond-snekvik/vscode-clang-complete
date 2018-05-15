@@ -8,6 +8,27 @@
 #include "structures.h"
 
 /* Common parameter JSON encoders */
+json_t * encode_compilation_database_params(compilation_database_params_t value)
+{
+    json_t * p_json = json_object();
+
+    if (value.valid_fields & COMPILATION_DATABASE_PARAMS_FIELD_PATH)
+    {
+        json_object_set_new(p_json, "path", encode_string(value.path));
+    }
+
+    if (value.valid_fields & COMPILATION_DATABASE_PARAMS_FIELD_ADDITIONAL_ARGUMENTS)
+    {
+        json_t * p_additional_arguments_json = json_array();
+        for (uint32_t i = 0; i < value.additional_arguments_count; ++i)
+        {
+            json_array_append_new(p_additional_arguments_json, encode_string(value.p_additional_arguments[i]));
+        }
+        json_object_set_new(p_json, "additionalArguments", p_additional_arguments_json);
+    }
+    return p_json;
+}
+
 json_t * encode_initialization_options(initialization_options_t value)
 {
     json_t * p_json = json_object();
@@ -27,7 +48,7 @@ json_t * encode_initialization_options(initialization_options_t value)
         json_t * p_compilation_database_json = json_array();
         for (uint32_t i = 0; i < value.compilation_database_count; ++i)
         {
-            json_array_append_new(p_compilation_database_json, encode_string(value.p_compilation_database[i]));
+            json_array_append_new(p_compilation_database_json, encode_compilation_database_params(value.p_compilation_database[i]));
         }
         json_object_set_new(p_json, "compilationDatabase", p_compilation_database_json);
     }
