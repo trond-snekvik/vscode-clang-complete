@@ -19,7 +19,7 @@
 #define INDEX_OPTIONS (CXIndexOpt_SuppressRedundantRefs | CXIndexOpt_SkipParsedBodiesInSession | CXIndexOpt_SuppressWarnings)
 #define INDEX_TRANSLATION_UNIT_OPTIONS (CXTranslationUnit_SkipFunctionBodies | CXTranslationUnit_KeepGoing)
 
-#define COMPLETION_FLAGS (CXCodeComplete_IncludeMacros | CXCodeComplete_IncludeBriefComments)
+#define COMPLETION_FLAGS (CXCodeComplete_IncludeMacros | CXCodeComplete_IncludeBriefComments | CXCodeComplete_IncludeCodePatterns)
 #define COMPLETION_STRING_MAXLEN    2048
 
 #define NO_FILENAME_DIAG "clang-server:///command-line"
@@ -1043,6 +1043,8 @@ bool unit_code_completion(unit_t *p_unit,
             char * p_var_type_text = NULL;
 
             char full_text[COMPLETION_STRING_MAXLEN];
+            char * p_label = MALLOC(COMPLETION_STRING_MAXLEN);
+            char * p_label_next = p_label;
             char * p_full_text_next = &full_text[0];
             unsigned placeholders = 0;
             unsigned chunk_count = clang_getNumCompletionChunks(completion);
@@ -1055,14 +1057,11 @@ bool unit_code_completion(unit_t *p_unit,
                 const char * p_text = clang_getCString(chunk_string);
                 unsigned text_len = strlen(p_text);
 
-                if (false && kind == CXCompletionChunk_Placeholder)
+                if (kind == CXCompletionChunk_Placeholder)
                 {
                     if (p_full_text_next + text_len + 8 < &full_text[COMPLETION_STRING_MAXLEN])
                     {
-                        p_full_text_next += sprintf(p_full_text_next, "${%u:", ++placeholders);
-                        strcpy(p_full_text_next, p_text);
-                        p_full_text_next += text_len;
-                        p_full_text_next += sprintf(p_full_text_next, "}");
+                        p_full_text_next += sprintf(p_full_text_next, "${%u:%s}", ++placeholders, p_text);
                     }
                 }
                 else if (kind != CXCompletionChunk_ResultType && kind != CXCompletionChunk_Optional) //TODO: Emit separate results per optional chunk
@@ -1072,6 +1071,14 @@ bool unit_code_completion(unit_t *p_unit,
                         strcpy(p_full_text_next, p_text);
                         p_full_text_next += text_len;
                     }
+                }
+
+                if (kind != CXCompletionChunk_ResultType &&
+                    kind != CXCompletionChunk_Optional &&
+                    p_label_next + text_len < &p_label[COMPLETION_STRING_MAXLEN])
+                {
+                    strcpy(p_label_next, p_text);
+                    p_label_next += text_len;
                 }
 
                 switch (kind)
@@ -1097,6 +1104,8 @@ bool unit_code_completion(unit_t *p_unit,
                 }
                 clang_disposeString(chunk_string);
             }
+
+            *p_label_next = '\0';
 
             bool filter_pass;
             if (p_start_string == NULL)
@@ -1139,7 +1148,7 @@ bool unit_code_completion(unit_t *p_unit,
                     result.valid_fields |= COMPLETION_ITEM_FIELD_DETAIL;
                 }
 
-                result.label = full_text;
+                result.label = p_label;
 
                 const char * p_doc = clang_getCString(doc);
 #if 0 // markdown in completion
@@ -1188,6 +1197,7 @@ bool unit_code_completion(unit_t *p_unit,
             FREE(p_typed_text);
             FREE(p_inserted_text);
             FREE(p_var_type_text);
+            FREE(p_label);
         }
 
         clang_disposeCodeCompleteResults(p_results);
@@ -1675,7 +1685,7 @@ void unit_fixits_resolve(unit_t * p_unit, const char * p_filename, const range_t
                 p_header = "Fix problem: Replace with ";
             }
 
-            p_commands[count].title = malloc(strlen(p_header) + strlen(p_unit->p_fixits[i].p_string) + 1);
+            p_commands[count].title = MALLOC(strlen(p_header) + strlen(p_unit->p_fixits[i].p_string) + 1);
             sprintf(p_commands[count].title, "%s%s", p_header, p_unit->p_fixits[i].p_string);
             p_commands[count].arguments = json_array();
             json_array_append_new(p_commands[count].arguments, json_string(p_unit->p_fixits[i].p_string));
