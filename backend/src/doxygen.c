@@ -230,7 +230,7 @@ static unsigned copy_string(char ** pp_dst, const char * p_src)
     ASSERT(p_src);
     ASSERT(pp_dst);
     ASSERT(*pp_dst);
-    size_t len = strlen(p_src);
+    size_t len = STRLEN(p_src);
     memcpy(*pp_dst, p_src, len);
     *pp_dst += len;
     return len;
@@ -240,7 +240,7 @@ static bool starts_with(const char * p_string, const char * p_substr)
 {
     ASSERT(p_string);
     ASSERT(p_substr);
-    return (memcmp(p_string, p_substr, strlen(p_substr)) == 0);
+    return (memcmp(p_string, p_substr, STRLEN(p_substr)) == 0);
 }
 
 static bool is_doxyblock(const char * p_string)
@@ -305,7 +305,7 @@ static const char * get_first_block(const keyword_t * p_keywords, unsigned keywo
 static char * format(const char * p_string, unsigned maxlen)
 {
     ASSERT(p_string);
-    unsigned string_len = strlen(p_string);
+    unsigned string_len = STRLEN(p_string);
     char * p_retval = MALLOC(min(string_len, maxlen));
     char * p_dst = &p_retval[0];
     const char * p_src = &p_string[0];
@@ -728,11 +728,11 @@ char * doxygen_function_to_markdown(const doxygen_function_t * p_func, bool incl
     static const char * p_return_header_with_val = "| Return value | Description\n|---------------------|--------------\n";
     static const char * p_return_header = "| Return description\n|--------------------------------------\n";
 
-    unsigned len = strlen(p_section_header) +
-                   strlen(p_param_header_direction) +
+    unsigned len = STRLEN(p_section_header) +
+                   STRLEN(p_param_header_direction) +
                    STRLEN(p_func->brief) +
                    STRLEN(p_func->details) +
-                   strlen(p_return_header_with_val);
+                   STRLEN(p_return_header_with_val);
 
     bool has_param_directions = false;
     if (include_params)
@@ -755,7 +755,7 @@ char * doxygen_function_to_markdown(const doxygen_function_t * p_func, bool incl
         const unsigned per_return_overhead = 20;
         for (unsigned i = 0; i < p_func->return_count; ++i)
         {
-            len += per_return_overhead + strlen(p_func->p_returns[i].p_value) + 2 * strlen(p_func->p_returns[i].description);
+            len += per_return_overhead + STRLEN(p_func->p_returns[i].p_value) + 2 * STRLEN(p_func->p_returns[i].description);
             if (p_func->p_returns[i].p_value)
             {
                 has_retvals = true;
