@@ -27,9 +27,8 @@ source_file_t * source_file_create(const char * p_contents)
 void source_file_contents_set(source_file_t * p_source_file, const char * p_new_contents)
 {
     ASSERT(p_source_file->p_contents);
-    //FREE(p_source_file->p_contents);
-    //p_source_file->p_contents = STRDUP(p_new_contents);
-    //p_source_file->size = strlen(p_new_contents);
+    p_source_file->p_contents = STRDUP(p_new_contents);
+    p_source_file->size = strlen(p_new_contents);
 }
 
 void source_file_patch(source_file_t * p_source_file, const char * p_new_contents, const position_t * p_start_pos, size_t old_len)
